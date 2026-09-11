@@ -1809,20 +1809,47 @@ function updateShareSelectionBar(){
 
 let currentShareUrl = null;
 
+/* ===== Verlauf geteilter Exporte ===== */
+function loadShareHistory(){
+  try{
+    const raw = localStorage.getItem('sz_share_history');
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){ return []; }
+}
+function saveShareHistory(list){
+  try{ localStorage.setItem('sz_share_history', JSON.stringify(list.slice(0,5))); }
+  catch(e){ /* Verlauf ist nur Komfort, kein kritischer Datenverlust falls das fehlschlägt */ }
+}
+
 document.getElementById('btnShareSelected').addEventListener('click', () => {
   const selectedDays = days.filter(d => selectedDates.has(d.date)).sort((a,b)=> a.date.localeCompare(b.date));
   if(selectedDays.length === 0) return;
 
+  const first = selectedDays[0].date, last = selectedDays[selectedDays.length-1].date;
+
+  // Duplikat-Warnung: gleiche Auswahl vor kurzem schon exportiert?
+  const history = loadShareHistory();
+  const recentDup = history.find(h =>
+    h.firstDate === first && h.lastDate === last && h.dayCount === selectedDays.length &&
+    (Date.now() - new Date(h.timestamp).getTime()) < 5*60*1000
+  );
+  if(recentDup){
+    const mins = Math.max(1, Math.round((Date.now() - new Date(recentDup.timestamp).getTime())/60000));
+    const ok = window.confirm(`Diese Auswahl (${selectedDays.length} Tag(e), ${fmtDate(fromISODate(first))}–${fmtDate(fromISODate(last))}) hast du vor ${mins} Minute(n) schon heruntergeladen. Trotzdem nochmal?`);
+    if(!ok) return;
+  }
+
+  const now = new Date();
   const payload = {
     app: 'stundenzettel-share',
     version: 1,
-    exportedAt: new Date().toISOString(),
+    exportedAt: now.toISOString(),
     sharedBy: settings.name || '',
     days: selectedDays
   };
   const json = JSON.stringify(payload, null, 2);
-  const first = selectedDays[0].date, last = selectedDays[selectedDays.length-1].date;
-  const fname = `Stunden-Geteilt_${first}_bis_${last}.json`;
+  const timeStr = `${pad(now.getHours())}-${pad(now.getMinutes())}`;
+  const fname = `Stunden-Geteilt_${first}_bis_${last}_${timeStr}.json`;
   const blob = new Blob([json], {type:'application/json'});
   if(currentShareUrl) URL.revokeObjectURL(currentShareUrl);
   const url = URL.createObjectURL(blob);
@@ -1832,21 +1859,13 @@ document.getElementById('btnShareSelected').addEventListener('click', () => {
   downloadLink.href = url;
   downloadLink.download = fname;
 
-  const shareBtn = document.getElementById('shareResultShareBtn');
-  let canShareFiles = false;
-  let file = null;
-  try{
-    file = new File([blob], fname, {type:'application/json'});
-    canShareFiles = !!(navigator.canShare && navigator.canShare({files:[file]}));
-  }catch(e){ canShareFiles = false; }
-
-  shareBtn.style.display = canShareFiles ? 'block' : 'none';
-  shareBtn.onclick = async () => {
-    try{
-      await navigator.share({files:[file], title:'Geteilte Stundentage'});
-      shareResultModal.classList.remove('open');
-    }catch(e){ /* Nutzer hat abgebrochen -> Modal bleibt offen, Download-Link bleibt nutzbar */ }
-  };
+  // Im Verlauf ablegen (neueste zuerst, max. 5)
+  const newHistory = [{
+    timestamp: now.toISOString(),
+    fname, firstDate: first, lastDate: last,
+    dayCount: selectedDays.length, json
+  }, ...history].slice(0,5);
+  saveShareHistory(newHistory);
 
   selectMode = false;
   selectedDates = new Set();
@@ -1857,6 +1876,52 @@ document.getElementById('btnShareSelected').addEventListener('click', () => {
 
   shareResultModal.classList.add('open');
 });
+
+/* ===== Verlauf-Ansicht ===== */
+const shareHistoryModal = document.getElementById('shareHistoryModal');
+let historyUrls = [];
+
+document.getElementById('btnShareHistory').addEventListener('click', () => {
+  renderShareHistoryList();
+  settingsModal.classList.remove('open');
+  shareHistoryModal.classList.add('open');
+});
+document.getElementById('closeShareHistory').addEventListener('click', () => shareHistoryModal.classList.remove('open'));
+shareHistoryModal.addEventListener('click', (e) => { if(e.target === shareHistoryModal) shareHistoryModal.classList.remove('open'); });
+
+function renderShareHistoryList(){
+  historyUrls.forEach(u => URL.revokeObjectURL(u));
+  historyUrls = [];
+
+  const history = loadShareHistory();
+  const list = document.getElementById('shareHistoryList');
+  if(history.length === 0){
+    list.innerHTML = `<div class="settings-hint">Noch nichts geteilt.</div>`;
+    return;
+  }
+  list.innerHTML = history.map((h, idx) => {
+    const dt = new Date(h.timestamp);
+    const dateStr = `${fmtDate(fromISODate(h.firstDate))}${h.firstDate!==h.lastDate ? ' – '+fmtDate(fromISODate(h.lastDate)) : ''}`;
+    const timeStr = `${dt.toLocaleDateString('de-DE')} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+    return `<div class="share-history-row">
+      <div class="info">
+        <div class="d">${h.dayCount} Tag(e) · ${dateStr}</div>
+        <div class="s">Exportiert am ${timeStr}</div>
+      </div>
+      <a data-idx="${idx}" class="history-redownload" download>Laden</a>
+    </div>`;
+  }).join('');
+
+  // Jedem Link direkt eine echte, fertige Blob-URL zum Herunterladen mitgeben
+  list.querySelectorAll('.history-redownload').forEach(a => {
+    const h = history[parseInt(a.dataset.idx)];
+    const blob = new Blob([h.json], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    historyUrls.push(url);
+    a.href = url;
+    a.download = h.fname;
+  });
+}
 
 const shareResultModal = document.getElementById('shareResultModal');
 document.getElementById('closeShareResult').addEventListener('click', () => shareResultModal.classList.remove('open'));
@@ -1961,7 +2026,7 @@ document.querySelectorAll('.settings-group-head').forEach(btn => {
 });
 
 /* ===== Init ===== */
-const APP_VERSION = 'v33'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v35'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 applyDarkMode();
 const logoImg = new Image();
