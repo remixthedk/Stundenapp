@@ -472,7 +472,23 @@
       <h2>Suche</h2>
       <button id="closeSearch">✕</button>
     </div>
-    <input type="text" id="searchInput" placeholder="Kunde oder Tätigkeit suchen..." autocomplete="off">
+    <input type="text" id="searchInput" placeholder="Kunde, Tätigkeit oder Sachbegriff..." autocomplete="off">
+
+    <div class="type-tabs" id="searchTypeFilter" style="margin-top:10px;">
+      <div class="type-tab active" data-type="">Alle</div>
+      <div class="type-tab" data-type="work">Arbeit</div>
+      <div class="type-tab" data-type="urlaub">Urlaub</div>
+      <div class="type-tab" data-type="krankheit">Krank</div>
+      <div class="type-tab" data-type="schule">Schule</div>
+      <div class="type-tab" data-type="abbau">Abbau</div>
+    </div>
+
+    <div class="row-3" style="margin-top:10px;align-items:center;">
+      <div><input type="date" id="searchDateFrom"></div>
+      <div><input type="date" id="searchDateTo"></div>
+      <button type="button" id="searchMatchMode" class="btn secondary" style="flex:0 0 auto;padding:11px 12px;">UND</button>
+    </div>
+
     <div id="searchResults" style="margin-top:14px;"></div>
   </div>
 </div>

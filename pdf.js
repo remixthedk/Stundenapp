@@ -204,7 +204,7 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
           const rowH = 3.9 + (it.taetigkeit ? 3.9 : 0);
           if(idx % 2 === 0){
             doc.setFillColor(...stripeColor);
-            doc.rect(M+3.2, cy-3.4, contentW-6.4, rowH, 'F');
+            doc.rect(M+3.2, cy-3.4, contentW-4.7, rowH, 'F');
           }
 
           doc.setFont('helvetica','bold'); doc.setFontSize(8.6); doc.setTextColor(20,20,20);

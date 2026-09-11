@@ -592,47 +592,104 @@ document.getElementById('saveSettings').addEventListener('click', () => {
 
 /* ===== Search ===== */
 const searchModal = document.getElementById('searchModal');
+let searchTypeFilter = '';
+let searchMatchAll = true; // true = UND, false = ODER
+
 document.getElementById('btnSearch').addEventListener('click', () => {
   document.getElementById('searchInput').value = '';
+  document.getElementById('searchDateFrom').value = '';
+  document.getElementById('searchDateTo').value = '';
   document.getElementById('searchResults').innerHTML = '';
+  searchTypeFilter = '';
+  searchMatchAll = true;
+  document.getElementById('searchMatchMode').textContent = 'UND';
+  document.querySelectorAll('#searchTypeFilter .type-tab').forEach(t => t.classList.toggle('active', t.dataset.type===''));
   searchModal.classList.add('open');
   setTimeout(()=> document.getElementById('searchInput').focus(), 150);
 });
 document.getElementById('closeSearch').addEventListener('click', () => searchModal.classList.remove('open'));
 searchModal.addEventListener('click', (e) => { if(e.target === searchModal) searchModal.classList.remove('open'); });
 
-document.getElementById('searchInput').addEventListener('input', (e) => {
-  runSearch(e.target.value.trim().toLowerCase());
+document.getElementById('searchInput').addEventListener('input', () => runSearch());
+document.getElementById('searchDateFrom').addEventListener('change', () => runSearch());
+document.getElementById('searchDateTo').addEventListener('change', () => runSearch());
+
+document.getElementById('searchTypeFilter').addEventListener('click', (e) => {
+  const tab = e.target.closest('.type-tab');
+  if(!tab) return;
+  document.querySelectorAll('#searchTypeFilter .type-tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+  searchTypeFilter = tab.dataset.type;
+  runSearch();
 });
 
-function runSearch(q){
+document.getElementById('searchMatchMode').addEventListener('click', () => {
+  searchMatchAll = !searchMatchAll;
+  document.getElementById('searchMatchMode').textContent = searchMatchAll ? 'UND' : 'ODER';
+  runSearch();
+});
+
+function highlightWords(text, words){
+  if(!text) return '';
+  let out = escapeHtml(text);
+  words.forEach(w => {
+    if(!w) return;
+    const re = new RegExp('(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'ig');
+    out = out.replace(re, '<b style="background:rgba(27,75,102,0.18);border-radius:2px;">$1</b>');
+  });
+  return out;
+}
+
+function runSearch(){
   const resultsEl = document.getElementById('searchResults');
-  if(!q){ resultsEl.innerHTML = ''; return; }
+  const rawQ = document.getElementById('searchInput').value.trim().toLowerCase();
+  const words = rawQ.split(/\s+/).filter(Boolean);
+  const dateFrom = document.getElementById('searchDateFrom').value;
+  const dateTo = document.getElementById('searchDateTo').value;
+  const typeLabels = {urlaub:'Urlaub', krankheit:'Krankheit', schule:'Schule', abbau:'Überstundenabbau'};
+
+  const hasFilters = words.length > 0 || dateFrom || dateTo || searchTypeFilter;
+  if(!hasFilters){ resultsEl.innerHTML = ''; return; }
+
+  const matchText = (text) => {
+    if(words.length === 0) return true;
+    const t = text.toLowerCase();
+    return searchMatchAll ? words.every(w => t.includes(w)) : words.some(w => t.includes(w));
+  };
 
   const matches = [];
   days.forEach(day => {
-    if(day.type !== 'work') return;
-    (day.items||[]).forEach(it => {
-      const kunde = (it.kunde||'').toLowerCase();
-      const taetigkeit = (it.taetigkeit||'').toLowerCase();
-      if(kunde.includes(q) || taetigkeit.includes(q)){
-        matches.push({date: day.date, kunde: it.kunde, taetigkeit: it.taetigkeit, stunden: it.stunden});
+    if(dateFrom && day.date < dateFrom) return;
+    if(dateTo && day.date > dateTo) return;
+    if(searchTypeFilter && day.type !== searchTypeFilter) return;
+
+    if(day.type === 'work'){
+      (day.items||[]).forEach(it => {
+        const combined = `${it.kunde||''} ${it.taetigkeit||''}`;
+        if(matchText(combined)){
+          matches.push({date: day.date, kunde: it.kunde||'Büroarbeiten', taetigkeit: it.taetigkeit||'', stunden: it.stunden});
+        }
+      });
+    } else {
+      const label = typeLabels[day.type] || day.type;
+      if(matchText(label)){
+        matches.push({date: day.date, kunde: label, taetigkeit: '', stunden: dayTotal(day)});
       }
-    });
+    }
   });
 
   matches.sort((a,b)=> b.date.localeCompare(a.date));
 
   if(matches.length === 0){
-    resultsEl.innerHTML = `<div class="search-empty">Keine Treffer für „${escapeHtml(q)}“</div>`;
+    resultsEl.innerHTML = `<div class="search-empty">Keine Treffer</div>`;
     return;
   }
 
   resultsEl.innerHTML = matches.map(m => {
     const dt = fromISODate(m.date);
     return `<div class="search-result" data-date="${m.date}">
-      <div class="sr-top"><span>${escapeHtml(m.kunde||'Büroarbeiten')}</span><span>${fmtHours(m.stunden)} Std</span></div>
-      <div class="sr-sub">${fmtDate(dt)}${m.taetigkeit ? ' · ' + escapeHtml(m.taetigkeit) : ''}</div>
+      <div class="sr-top"><span>${highlightWords(m.kunde, words)}</span><span>${fmtHours(m.stunden)} Std</span></div>
+      <div class="sr-sub">${fmtDate(dt)}${m.taetigkeit ? ' · ' + highlightWords(m.taetigkeit, words) : ''}</div>
     </div>`;
   }).join('');
 
