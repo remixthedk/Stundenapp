@@ -540,7 +540,10 @@ document.getElementById('deleteDay').addEventListener('click', () => {
 function closeDayModal(){ dayModal.classList.remove('open'); }
 document.getElementById('closeDayModal').addEventListener('click', closeDayModal);
 dayModal.addEventListener('click', (e) => { if(e.target === dayModal) closeDayModal(); });
-document.getElementById('btnAddDay').addEventListener('click', () => openDayModal(null));
+document.getElementById('btnAddDay').addEventListener('click', () => {
+  settingsModal.classList.remove('open');
+  openDayModal(null);
+});
 
 /* ===== Settings Modal ===== */
 function openSettings(){
@@ -925,14 +928,16 @@ document.getElementById('btnExportCsv').addEventListener('click', () => {
   a.href = url; a.download = fname;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
+  settingsModal.classList.remove('open');
   toast('CSV heruntergeladen');
 });
 
 document.getElementById('btnExport').addEventListener('click', async () => {
   const monthDays = currentMonthDays();
   if(monthDays.length === 0){ toast('Keine Einträge in diesem Monat'); return; }
-  if(!settings.name){ toast('Bitte zuerst Name in Einstellungen eintragen'); openSettings(); return; }
+  if(!settings.name){ toast('Bitte zuerst Name eintragen'); return; }
   await generateStundenzettelPDF(monthDays, settings, viewDate, logoImg);
+  settingsModal.classList.remove('open');
 });
 
 /* ===== Toast ===== */

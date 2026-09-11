@@ -32,7 +32,7 @@
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
     font-variant-numeric:tabular-nums;
     -webkit-font-smoothing:antialiased;
-    padding-bottom:88px;
+    padding-bottom:24px;
   }
   header.topbar{
     position:sticky;top:0;z-index:20;
@@ -330,12 +330,6 @@
 <div class="list-heading">Einträge im Monat</div>
 <div id="listContainer"></div>
 
-<div class="fab-bar">
-  <button class="btn secondary" id="btnExportCsv">CSV</button>
-  <button class="btn secondary" id="btnExport">PDF exportieren</button>
-  <button class="btn primary" id="btnAddDay">+ Tag erfassen</button>
-</div>
-
 <datalist id="kundenListe"></datalist>
 
 <!-- Settings Modal -->
@@ -345,6 +339,16 @@
       <h2>Einstellungen</h2>
       <button id="closeSettings">✕</button>
     </div>
+
+    <div class="modal-actions">
+      <button class="btn primary" id="btnAddDay" style="flex:1">+ Tag erfassen</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn secondary" id="btnExportCsv" style="flex:1">CSV exportieren</button>
+      <button class="btn secondary" id="btnExport" style="flex:1">PDF exportieren</button>
+    </div>
+    <hr class="sep">
+
     <label>Name</label>
     <input type="text" id="setName" placeholder="Vorname Nachname">
     <label>Straße &amp; Hausnummer</label>
