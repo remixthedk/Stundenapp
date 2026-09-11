@@ -68,30 +68,76 @@ const DEFAULT_SETTINGS = {
   pinEnabled:false, pinHash:null
 };
 
+function isStorageAvailable(){
+  try{
+    const testKey = '__sz_test__';
+    localStorage.setItem(testKey, '1');
+    localStorage.removeItem(testKey);
+    return true;
+  }catch(e){ return false; }
+}
+const storageAvailable = isStorageAvailable();
+
 function loadSettings(){
   try{
     const raw = localStorage.getItem('sz_settings');
     return raw ? Object.assign({}, DEFAULT_SETTINGS, JSON.parse(raw)) : {...DEFAULT_SETTINGS};
-  }catch(e){ return {...DEFAULT_SETTINGS}; }
+  }catch(e){
+    rescueCorruptData('sz_settings');
+    return {...DEFAULT_SETTINGS};
+  }
 }
-function saveSettings(s){ localStorage.setItem('sz_settings', JSON.stringify(s)); }
+function saveSettings(s){
+  try{
+    localStorage.setItem('sz_settings', JSON.stringify(s));
+    return true;
+  }catch(e){ return false; }
+}
 
 function loadDays(){
   try{
     const raw = localStorage.getItem('sz_days');
     return raw ? JSON.parse(raw) : [];
-  }catch(e){ return []; }
+  }catch(e){
+    rescueCorruptData('sz_days');
+    return [];
+  }
 }
-function saveDays(days){ localStorage.setItem('sz_days', JSON.stringify(days)); }
+function saveDays(days){
+  try{
+    localStorage.setItem('sz_days', JSON.stringify(days));
+    return true;
+  }catch(e){ return false; }
+}
 
 function loadLockedMonths(){
   try{
     const raw = localStorage.getItem('sz_locked_months');
     return raw ? JSON.parse(raw) : [];
-  }catch(e){ return []; }
+  }catch(e){
+    rescueCorruptData('sz_locked_months');
+    return [];
+  }
 }
-function saveLockedMonths(list){ localStorage.setItem('sz_locked_months', JSON.stringify(list)); }
+function saveLockedMonths(list){
+  try{
+    localStorage.setItem('sz_locked_months', JSON.stringify(list));
+    return true;
+  }catch(e){ return false; }
+}
 function monthKey(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}`; }
+
+// Rettet einen nicht mehr lesbaren Datensatz unter neuem Schlüssel, statt ihn stillschweigend zu verwerfen.
+function rescueCorruptData(key){
+  try{
+    const raw = localStorage.getItem(key);
+    if(raw){
+      localStorage.setItem(`${key}_rescued_${Date.now()}`, raw);
+      dataIntegrityWarning = true;
+    }
+  }catch(e){ /* nichts mehr zu retten */ }
+}
+let dataIntegrityWarning = false;
 
 /* ===== State ===== */
 let settings = loadSettings();
@@ -201,9 +247,31 @@ function renderNotices(){
   const banner = document.getElementById('noticeBanner');
   const todayISO = toISODate(new Date());
 
+  let message = null;
+
+  // Allerhöchste Priorität: Speicher komplett blockiert (z.B. privater Modus) – nichts wird gespeichert
+  if(!storageAvailable){
+    banner.textContent = '';
+    const span = document.createElement('span');
+    span.textContent = '⚠️ Speicher nicht verfügbar (z.B. privater/inkognito Modus): Eingaben werden NICHT gespeichert! Bitte normalen Browser-Modus nutzen.';
+    banner.appendChild(span);
+    banner.style.display = 'flex';
+    return;
+  }
+
+  // Höchste Priorität: beschädigte Daten wurden gerettet – das muss der Nutzer sehen
+  if(dataIntegrityWarning){
+    message = 'Achtung: Beim Laden gab es ein Problem mit gespeicherten Daten. Eine Rettungskopie wurde angelegt. Bitte zeitnah eine Datensicherung prüfen/erstellen!';
+    banner.textContent = '';
+    const span = document.createElement('span');
+    span.textContent = message;
+    banner.appendChild(span);
+    banner.style.display = 'flex';
+    return;
+  }
+
   // 1x pro Tag prüfen, nicht bei jedem Render nerven
   const lastCheck = localStorage.getItem('sz_lastNoticeCheck');
-  let message = null;
 
   // fehlender Werktag (gestern, falls Mo-Fr und kein Eintrag)
   const yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1);
@@ -326,7 +394,7 @@ function render(){
   container.innerHTML = '';
 
   if(monthDays.length === 0){
-    container.innerHTML = `<div class="empty-state">Noch keine Einträge für diesen Monat.<br>Tippe unten auf „+ Tag erfassen“.</div>`;
+    container.innerHTML = `<div class="empty-state">Noch keine Einträge für diesen Monat.<br>Tippe oben im Kalender auf einen Tag, um ihn zu erfassen.</div>`;
     return;
   }
 
@@ -610,19 +678,19 @@ document.getElementById('saveDay').addEventListener('click', () => {
 
   days = days.filter(d => d.date !== date); // replace if exists
   days.push(record);
-  saveDays(days);
+  const saveOk = saveDays(days);
   closeDayModal();
   render();
-  toast('Gespeichert');
+  toast(saveOk ? 'Gespeichert' : '⚠️ Speichern fehlgeschlagen – Speicher voll oder blockiert?');
 });
 
 document.getElementById('deleteDay').addEventListener('click', () => {
   if(!editingDate) return;
   days = days.filter(d => d.date !== editingDate);
-  saveDays(days);
+  const saveOk = saveDays(days);
   closeDayModal();
   render();
-  toast('Tag gelöscht');
+  toast(saveOk ? 'Tag gelöscht' : '⚠️ Löschen konnte nicht gespeichert werden!');
 });
 
 function closeDayModal(){ dayModal.classList.remove('open'); }
@@ -704,11 +772,11 @@ document.getElementById('saveSettings').addEventListener('click', () => {
     darkMode: document.getElementById('setDarkMode').checked,
     pinEnabled, pinHash,
   };
-  saveSettings(settings);
+  const saveOk = saveSettings(settings);
   applyDarkMode();
   settingsModal.classList.remove('open');
   render();
-  toast('Einstellungen gespeichert');
+  toast(saveOk ? 'Einstellungen gespeichert' : '⚠️ Speichern fehlgeschlagen – Speicher voll oder blockiert?');
 });
 
 /* ===== Search ===== */
@@ -894,19 +962,29 @@ document.getElementById('backupFileInput').addEventListener('change', (e) => {
       return;
     }
 
+    const backupCount = data.days.length;
+    const currentCount = days.length;
+    let rangeInfo = 'keine Einträge';
+    if(backupCount > 0){
+      const sortedDates = data.days.map(d=>d.date).sort();
+      rangeInfo = `${fmtDate(fromISODate(sortedDates[0]))} – ${fmtDate(fromISODate(sortedDates[sortedDates.length-1]))}`;
+    }
+
     const ok = window.confirm(
-      `Sicherung vom ${data.exportedAt ? new Date(data.exportedAt).toLocaleString('de-DE') : 'unbekannt'} laden?\n` +
-      `Alle aktuellen Daten auf diesem Handy werden dabei ersetzt.`
+      `Sicherung vom ${data.exportedAt ? new Date(data.exportedAt).toLocaleString('de-DE') : 'unbekannt'}\n\n` +
+      `Enthält: ${backupCount} Tag(e), Zeitraum ${rangeInfo}\n` +
+      `Aktuell auf diesem Handy: ${currentCount} Tag(e)\n\n` +
+      `Alle aktuellen Daten auf diesem Handy werden dabei ERSETZT. Fortfahren?`
     );
     if(!ok) return;
 
     settings = Object.assign({...DEFAULT_SETTINGS}, data.settings);
     days = data.days;
-    saveSettings(settings);
-    saveDays(days);
+    const ok1 = saveSettings(settings);
+    const ok2 = saveDays(days);
     render();
     settingsModal.classList.remove('open');
-    toast('Sicherung wiederhergestellt');
+    toast((ok1 && ok2) ? 'Sicherung wiederhergestellt' : '⚠️ Wiederherstellen unvollständig gespeichert!');
   };
   reader.readAsText(file);
   e.target.value = '';

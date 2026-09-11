@@ -261,6 +261,18 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
     doc.text(`Seite ${pageNum}/${totalPages}`, M+contentW/2, fy+17.5, {align:'center'});
   });
 
-  const fname = `Stundenzettel_${(settings.name||'').replace(/\s+/g,'-')}_${MONTHS[viewDate.getMonth()]}-${viewDate.getFullYear()}.pdf`;
+  const fname = `${(settings.name||'Unbekannt').replace(/\s+/g,'-')}-${MONTHS[viewDate.getMonth()]}-${viewDate.getFullYear()}.pdf`;
+
+  const blob = doc.output('blob');
+  if(navigator.canShare){
+    try{
+      const file = new File([blob], fname, {type:'application/pdf'});
+      if(navigator.canShare({files:[file]})){
+        await navigator.share({files:[file], title:fname});
+        return;
+      }
+    }catch(e){ return; } // Nutzer hat abgebrochen oder Teilen fehlgeschlagen -> kein Zwangs-Download
+  }
+
   doc.save(fname);
 }
