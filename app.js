@@ -360,6 +360,8 @@ function populateKundenDatalist(){
 }
 
 /* ===== Rendering: calendar grid ===== */
+let showKW = localStorage.getItem('sz_show_kw') === '1';
+
 function renderCalendar(monthDays){
   const y = viewDate.getFullYear(), m = viewDate.getMonth();
   const byDate = {};
@@ -371,8 +373,15 @@ function renderCalendar(monthDays){
   const daysInPrevMonth = new Date(y, m, 0).getDate();
   const todayISO = toISODate(new Date());
 
+  const cols = showKW ? '0.5fr repeat(7,1fr) 0.85fr' : 'repeat(7,1fr) 0.85fr';
   const grid = document.getElementById('calGrid');
   grid.innerHTML = '';
+  grid.style.gridTemplateColumns = cols;
+
+  const header = document.getElementById('calWeekdaysHeader');
+  header.style.gridTemplateColumns = cols;
+  header.innerHTML = (showKW ? '<span></span>' : '') +
+    '<span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span><span>Σ</span>';
 
   // Flache Liste aller Zellen (führende/nachfolgende Monatsränder + echte Tage) aufbauen
   const cells = [];
@@ -393,6 +402,14 @@ function renderCalendar(monthDays){
   for(let rowStart=0; rowStart<cells.length; rowStart+=7){
     const rowCells = cells.slice(rowStart, rowStart+7);
     let weekSum = 0;
+
+    if(showKW){
+      const firstRealCell = rowCells.find(c => !c.muted);
+      const kwCell = document.createElement('div');
+      kwCell.className = 'cal-kw-label';
+      kwCell.textContent = firstRealCell ? isoWeek(firstRealCell.dateObj) : '';
+      grid.appendChild(kwCell);
+    }
 
     rowCells.forEach(c => {
       const cell = document.createElement('div');
@@ -430,6 +447,14 @@ function renderCalendar(monthDays){
     grid.appendChild(sumCell);
   }
 }
+
+document.getElementById('toggleKW').addEventListener('click', () => {
+  showKW = !showKW;
+  localStorage.setItem('sz_show_kw', showKW ? '1' : '0');
+  document.getElementById('toggleKW').textContent = showKW ? 'KW ausblenden' : 'KW anzeigen';
+  render();
+});
+document.getElementById('toggleKW').textContent = showKW ? 'KW ausblenden' : 'KW anzeigen';
 
 /* ===== Rendering: month list ===== */
 function render(){
@@ -1112,6 +1137,22 @@ document.getElementById('btnExportYearPdf').addEventListener('click', async () =
   }
 
   await generateStundenzettelPDF(yearDays, settings, viewDate, logoImg, !isMobileDevice, `Jahr-${analyticsYear}`);
+  analyticsModal.classList.remove('open');
+});
+
+document.getElementById('btnExportYearPdfCompact').addEventListener('click', async () => {
+  const yearDays = days
+    .filter(d => fromISODate(d.date).getFullYear() === analyticsYear)
+    .sort((a,b)=> a.date.localeCompare(b.date));
+  if(yearDays.length === 0){ toast('Keine Einträge in diesem Jahr'); return; }
+  if(!settings.name){ toast('Bitte zuerst Name eintragen'); return; }
+
+  if(isMobileDevice && settings.emailRecipient){
+    const ok = window.confirm(`Ziel für den PDF-Versand:\n\n${settings.emailRecipient}\n\nWeiter zum Teilen-Menü?`);
+    if(!ok) return;
+  }
+
+  await generateStundenzettelPDFCompact(yearDays, settings, viewDate, logoImg, !isMobileDevice, `Jahr-${analyticsYear}`);
   analyticsModal.classList.remove('open');
 });
 

@@ -107,6 +107,15 @@
   .cal-legend .dot.krankheit{background:var(--danger);}
   .cal-legend .dot.schule{background:#4B5EAA;}
   .cal-legend .dot.abbau{background:var(--accent-heiz);}
+  .kw-toggle{
+    background:none;border:1px solid var(--border);border-radius:8px;
+    font-size:10.5px;font-weight:600;color:var(--primary);
+    height:24px;padding:0 8px;
+  }
+  .cal-kw-label{
+    display:flex;align-items:center;justify-content:center;
+    font-size:8.5px;color:var(--muted);font-weight:600;background:transparent;
+  }
   .list-heading{margin:20px 16px 4px;font-size:12.5px;font-weight:600;color:var(--muted);}
   .week-group{margin:8px 16px 0;}
   .week-head{
@@ -353,7 +362,10 @@
 
 
 <div class="calendar-wrap">
-  <div class="cal-weekdays">
+  <div style="display:flex;justify-content:flex-end;margin-bottom:6px;">
+    <button type="button" id="toggleKW" class="kw-toggle">KW anzeigen</button>
+  </div>
+  <div class="cal-weekdays" id="calWeekdaysHeader">
     <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span><span>Σ</span>
   </div>
   <div class="cal-grid" id="calGrid"></div>
@@ -533,7 +545,8 @@
     </div>
 
     <div class="modal-actions" style="margin:0 0 16px;">
-      <button class="btn secondary" id="btnExportYearPdf" style="flex:1">Ganzes Jahr als PDF exportieren</button>
+      <button class="btn secondary" id="btnExportYearPdf" style="flex:1">Jahr als PDF (Standard)</button>
+      <button class="btn secondary" id="btnExportYearPdfCompact" style="flex:1">Jahr als PDF (kompakt)</button>
     </div>
 
     <div id="yearDashboard" style="margin:0 0 16px;"></div>
