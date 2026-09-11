@@ -150,13 +150,53 @@ let editingDate = null; // ISO date of day currently being edited, null = new
 
 /* ===== Day total calc ===== */
 function dayTotal(day){
+  if(!day || typeof day !== 'object') return 0;
   if(day.type === 'work'){
-    return (day.items||[]).reduce((s,i)=> s + (parseFloat(i.stunden)||0), 0);
+    const items = Array.isArray(day.items) ? day.items : [];
+    return items.reduce((s,i)=> s + (parseFloat(i?.stunden)||0), 0);
   }
   if(day.type === 'abbau'){
     return parseFloat(day.abbauStunden)||0;
   }
-  return 0; // urlaub, krankheit
+  return 0; // urlaub, krankheit, schule
+}
+
+const VALID_DAY_TYPES = ['work','urlaub','krankheit','schule','abbau'];
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Prüft und bereinigt importierte Tages-Datensätze (aus Sicherung oder geteilter Datei).
+// Datensätze mit ungültigem Datum/Typ werden verworfen, statt die App zu gefährden.
+function sanitizeImportedDays(rawDays){
+  if(!Array.isArray(rawDays)) return {valid: [], rejected: 0};
+  const valid = [];
+  let rejected = 0;
+  rawDays.forEach(d => {
+    if(!d || typeof d !== 'object' || !ISO_DATE_RE.test(d.date) || !VALID_DAY_TYPES.includes(d.type)){
+      rejected++;
+      return;
+    }
+    const clean = { date: d.date, type: d.type };
+    if(d.type === 'work'){
+      const items = Array.isArray(d.items) ? d.items : [];
+      clean.items = items.map(it => ({
+        id: typeof it?.id === 'string' ? it.id : uid(),
+        kunde: typeof it?.kunde === 'string' ? it.kunde : '',
+        taetigkeit: typeof it?.taetigkeit === 'string' ? it.taetigkeit : '',
+        stunden: parseFloat(it?.stunden)||0,
+        notiz: typeof it?.notiz === 'string' ? it.notiz : '',
+        nachtarbeit: !!it?.nachtarbeit,
+        schmutzzulage: !!it?.schmutzzulage
+      })).filter(it => it.kunde || it.taetigkeit || it.stunden);
+      clean.start = typeof d.start === 'string' ? d.start : '';
+      clean.end = typeof d.end === 'string' ? d.end : '';
+      clean.pause = parseFloat(d.pause)||0;
+      if(clean.items.length === 0){ rejected++; return; }
+    } else if(d.type === 'abbau'){
+      clean.abbauStunden = parseFloat(d.abbauStunden)||0;
+    }
+    valid.push(clean);
+  });
+  return {valid, rejected};
 }
 
 /* ===== Dashboard ===== */
@@ -335,9 +375,11 @@ function renderNotices(){
   if(!message && lastCheck !== todayISO){
     const last = settings.lastBackupAt ? new Date(settings.lastBackupAt) : null;
     const daysSince = last ? (Date.now() - last.getTime())/86400000 : Infinity;
-    if(daysSince > 30){
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const threshold = isIOS ? 10 : 30; // Safari/iOS kann lokale Daten bei langer Nichtnutzung löschen
+    if(daysSince > threshold){
       message = last
-        ? `Letzte Datensicherung ist ${Math.floor(daysSince)} Tage her. Zeit für eine neue?`
+        ? `Letzte Datensicherung ist ${Math.floor(daysSince)} Tage her. ${isIOS ? 'Auf iPhone/iPad kann Safari lokale Daten bei langer Nichtnutzung löschen – ' : ''}Zeit für eine neue?`
         : `Noch keine Datensicherung erstellt. In den Einstellungen nachholen?`;
     }
   }
@@ -509,6 +551,7 @@ function render(){
     groupEl.innerHTML = `<div class="week-head"><span>Kalenderwoche ${wk}</span><span class="total">${fmtHours(weekTotal)} Std</span></div>`;
 
     list.forEach(d => {
+     try{
       const dt = fromISODate(d.date);
       const card = document.createElement('div');
       card.className = 'day-card';
@@ -519,14 +562,15 @@ function render(){
         const items = d.items || [];
         bodyHtml = items.map(it => `
           <div class="item-line">
-            <span class="k"><b>${escapeHtml(it.kunde || 'Büroarbeiten')}</b>${it.taetigkeit ? ' · ' + escapeHtml(it.taetigkeit) : ''}</span>
+            <span class="k"><b>${escapeHtml(it.kunde || 'Büroarbeiten')}</b>${it.taetigkeit ? ' · ' + escapeHtml(it.taetigkeit) : ''}${it.nachtarbeit ? '<span class="zulage-badge">🌙 Nacht</span>' : ''}${it.schmutzzulage ? '<span class="zulage-badge">🧹 Schmutz</span>' : ''}</span>
             <span>${fmtHours(parseFloat(it.stunden)||0)}</span>
           </div>
           ${it.notiz ? `<div class="item-notiz">📝 ${escapeHtml(it.notiz)} <span class="notiz-tag">nur intern</span></div>` : ''}`).join('');
       } else {
         const labels = {urlaub:'Urlaub', krankheit:'Krankheit', schule:'Schule', abbau:'Überstundenabbau'};
-        const label = labels[d.type] || d.type;
-        bodyHtml = `<span class="badge ${d.type}">${label}</span>`;
+        const safeClass = ['urlaub','krankheit','schule','abbau'].includes(d.type) ? d.type : 'urlaub';
+        const label = labels[d.type] || escapeHtml(String(d.type));
+        bodyHtml = `<span class="badge ${safeClass}">${label}</span>`;
       }
 
       card.innerHTML = `
@@ -566,6 +610,9 @@ function render(){
         card.addEventListener('click', () => openDayModal(d.date));
       }
       groupEl.appendChild(card);
+     }catch(err){
+       console.error('Fehler beim Anzeigen eines Tages, übersprungen:', d?.date, err);
+     }
     });
 
     container.appendChild(groupEl);
@@ -586,20 +633,36 @@ function defaultTimesFor(dateObj){
   return {start:settings.monThuStart, end:settings.monThuEnd, pause:settings.monThuPause};
 }
 
+function applyReadOnlyMode(readOnly){
+  const banner = document.getElementById('readOnlyBanner');
+  if(banner) banner.style.display = readOnly ? 'block' : 'none';
+
+  ['dayDate','dayStart','dayEnd','dayPause','abbauStunden','rangeToggle','rangeFrom','rangeTo','addItemBtn','copyPrevDayBtn'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.disabled = readOnly;
+  });
+  document.querySelectorAll('#typeTabs .type-tab').forEach(t => t.style.pointerEvents = readOnly ? 'none' : '');
+  document.querySelectorAll('#itemsContainer input, #itemsContainer button').forEach(el => el.disabled = readOnly);
+  document.getElementById('saveDay').style.display = readOnly ? 'none' : 'flex';
+}
+
 function openDayModal(targetDate){
   const checkDate = targetDate ? fromISODate(targetDate) : new Date();
-  if(isMonthLocked(checkDate)){
-    toast('Monat ist abgeschlossen – zum Bearbeiten erst entsperren');
+  const existing = targetDate ? days.find(d=>d.date===targetDate) : null;
+  const locked = isMonthLocked(checkDate);
+
+  if(locked && !existing){
+    toast('Monat ist abgeschlossen – keine neuen Einträge möglich');
     return;
   }
 
+  applyReadOnlyMode(locked);
   populateKundenDatalist();
 
-  const existing = targetDate ? days.find(d=>d.date===targetDate) : null;
   editingDate = existing ? existing.date : null;
 
-  document.getElementById('dayModalTitle').textContent = existing ? 'Tag bearbeiten' : 'Tag erfassen';
-  document.getElementById('deleteDay').style.display = existing ? 'block' : 'none';
+  document.getElementById('dayModalTitle').textContent = locked ? 'Tag ansehen (gesperrt)' : (existing ? 'Tag bearbeiten' : 'Tag erfassen');
+  document.getElementById('deleteDay').style.display = (existing && !locked) ? 'block' : 'none';
   document.getElementById('copyPrevDayBtn').style.display = existing ? 'none' : 'block';
   document.getElementById('rangeToggle').checked = false;
   document.getElementById('rangeDates').style.display = 'none';
@@ -634,6 +697,7 @@ function openDayModal(targetDate){
   }
 
   updateDayTotalDisplay();
+  applyReadOnlyMode(locked);
   dayModal.classList.add('open');
 }
 
@@ -703,13 +767,20 @@ function addItemRow(existing){
     <label>Tätigkeit</label>
     <input type="text" class="it-taetigkeit" placeholder="Ausgeführte Arbeit" value="${existing? escapeHtml(existing.taetigkeit||'') : ''}">
     <label>Stunden</label>
-    <input type="number" class="it-stunden" step="0.25" value="${existing? existing.stunden : ''}">
+    <input type="number" class="it-stunden" step="0.25" min="0" max="24" value="${existing? existing.stunden : ''}">
+    <div class="zulage-row">
+      <button type="button" class="zulage-btn ${existing?.nachtarbeit ? 'active' : ''}" data-flag="nachtarbeit">🌙 Nachtarbeit</button>
+      <button type="button" class="zulage-btn ${existing?.schmutzzulage ? 'active' : ''}" data-flag="schmutzzulage">🧹 Schmutzzulage</button>
+    </div>
     <label>📝 Notiz <span style="font-weight:400;color:var(--muted);">– nur in der App sichtbar, nicht im PDF</span></label>
     <div style="display:flex;gap:6px;">
       <input type="text" class="it-notiz" placeholder="z.B. Ersatzteil nachbestellen..." value="${existing? escapeHtml(existing.notiz||'') : ''}" style="flex:1;">
       <button type="button" class="mic-btn" title="Diktieren">🎤</button>
     </div>
   `;
+  wrap.querySelectorAll('.zulage-btn').forEach(btn => {
+    btn.addEventListener('click', () => btn.classList.toggle('active'));
+  });
   wrap.querySelector('.remove-item').addEventListener('click', () => {
     wrap.remove();
     updateDayTotalDisplay();
@@ -810,7 +881,9 @@ function collectItems(){
     kunde: card.querySelector('.it-kunde').value.trim(),
     taetigkeit: card.querySelector('.it-taetigkeit').value.trim(),
     stunden: parseFloat(card.querySelector('.it-stunden').value) || 0,
-    notiz: card.querySelector('.it-notiz').value.trim()
+    notiz: card.querySelector('.it-notiz').value.trim(),
+    nachtarbeit: card.querySelector('[data-flag="nachtarbeit"]').classList.contains('active'),
+    schmutzzulage: card.querySelector('[data-flag="schmutzzulage"]').classList.contains('active')
   }));
 }
 
@@ -839,13 +912,19 @@ document.getElementById('saveDay').addEventListener('click', () => {
 
     const datesToCreate = [];
     let skippedLocked = 0;
+    let skippedHolidays = 0;
     let cur = fromISODate(from);
     const end = fromISODate(to);
     while(cur <= end){
       const dow = cur.getDay();
       if(dow >= 1 && dow <= 5){
-        if(isMonthLocked(cur)) skippedLocked++;
-        else datesToCreate.push(toISODate(cur));
+        if(isHoliday(cur)){
+          skippedHolidays++;
+        } else if(isMonthLocked(cur)){
+          skippedLocked++;
+        } else {
+          datesToCreate.push(toISODate(cur));
+        }
       }
       cur = addDays(cur, 1);
     }
@@ -868,7 +947,10 @@ document.getElementById('saveDay').addEventListener('click', () => {
     closeDayModal();
     render();
     let msg = `${datesToCreate.length} Werktage eingetragen`;
-    if(skippedLocked > 0) msg += ` (${skippedLocked} in gesperrtem Monat übersprungen)`;
+    const extras = [];
+    if(skippedHolidays > 0) extras.push(`${skippedHolidays} Feiertag(e) übersprungen`);
+    if(skippedLocked > 0) extras.push(`${skippedLocked} in gesperrtem Monat übersprungen`);
+    if(extras.length) msg += ` (${extras.join(', ')})`;
     toast(saveOk ? msg : '⚠️ Speichern fehlgeschlagen – Speicher voll oder blockiert?');
     return;
   }
@@ -887,6 +969,13 @@ document.getElementById('saveDay').addEventListener('click', () => {
   if(type === 'work'){
     const items = collectItems().filter(i => i.kunde || i.taetigkeit || i.stunden);
     if(items.length === 0){ toast('Mindestens einen Eintrag hinzufügen'); return; }
+    const negativeItem = items.find(i => i.stunden < 0);
+    if(negativeItem){ toast(`Stunden bei "${negativeItem.kunde||'Büroarbeiten'}" dürfen nicht negativ sein`); return; }
+    const dayTotalHours = items.reduce((s,i)=>s+i.stunden,0);
+    if(dayTotalHours > 24){
+      const ok = window.confirm(`Tagessumme liegt bei ${fmtHours(dayTotalHours)} Std – das ist mehr als ein Tag hat. Trotzdem speichern?`);
+      if(!ok) return;
+    }
     record.start = document.getElementById('dayStart').value;
     record.end = document.getElementById('dayEnd').value;
     record.pause = parseFloat(document.getElementById('dayPause').value) || 0;
@@ -905,6 +994,8 @@ document.getElementById('saveDay').addEventListener('click', () => {
 
 document.getElementById('deleteDay').addEventListener('click', () => {
   if(!editingDate) return;
+  const ok = window.confirm(`Eintrag für ${fmtDate(fromISODate(editingDate))} wirklich löschen? Das kann nicht rückgängig gemacht werden.`);
+  if(!ok) return;
   days = days.filter(d => d.date !== editingDate);
   const saveOk = saveDays(days);
   closeDayModal();
@@ -983,12 +1074,15 @@ document.getElementById('saveSettings').addEventListener('click', () => {
     pinHash = null;
   }
 
+  const urlaubstageRaw = parseFloat(document.getElementById('setUrlaubstage').value) || 0;
+  if(urlaubstageRaw < 0){ toast('Jahresurlaubstage können nicht negativ sein'); return; }
+
   settings = {
     ...settings,
     name: document.getElementById('setName').value.trim(),
     street: document.getElementById('setStreet').value.trim(),
     city: document.getElementById('setCity').value.trim(),
-    urlaubstage: parseFloat(document.getElementById('setUrlaubstage').value) || 0,
+    urlaubstage: urlaubstageRaw,
     emailRecipient: document.getElementById('setEmailRecipient').value.trim(),
     monThuStart: document.getElementById('setMonThuStart').value,
     monThuEnd: document.getElementById('setMonThuEnd').value,
@@ -1222,24 +1316,26 @@ document.getElementById('backupFileInput').addEventListener('change', (e) => {
       return;
     }
 
-    const backupCount = data.days.length;
+    const { valid: cleanDays, rejected } = sanitizeImportedDays(data.days);
+    const backupCount = cleanDays.length;
     const currentCount = days.length;
     let rangeInfo = 'keine Einträge';
     if(backupCount > 0){
-      const sortedDates = data.days.map(d=>d.date).sort();
+      const sortedDates = cleanDays.map(d=>d.date).sort();
       rangeInfo = `${fmtDate(fromISODate(sortedDates[0]))} – ${fmtDate(fromISODate(sortedDates[sortedDates.length-1]))}`;
     }
 
     const ok = window.confirm(
       `Sicherung vom ${data.exportedAt ? new Date(data.exportedAt).toLocaleString('de-DE') : 'unbekannt'}\n\n` +
-      `Enthält: ${backupCount} Tag(e), Zeitraum ${rangeInfo}\n` +
-      `Aktuell auf diesem Handy: ${currentCount} Tag(e)\n\n` +
+      `Enthält: ${backupCount} Tag(e), Zeitraum ${rangeInfo}` +
+      (rejected > 0 ? `\n${rejected} Eintrag/Einträge waren ungültig und werden übersprungen.` : '') +
+      `\nAktuell auf diesem Handy: ${currentCount} Tag(e)\n\n` +
       `Alle aktuellen Daten auf diesem Handy werden dabei ERSETZT. Fortfahren?`
     );
     if(!ok) return;
 
     settings = Object.assign({...DEFAULT_SETTINGS}, data.settings);
-    days = data.days;
+    days = cleanDays;
     const ok1 = saveSettings(settings);
     const ok2 = saveDays(days);
     render();
@@ -1288,27 +1384,47 @@ document.getElementById('btnExportYearPdfCompact').addEventListener('click', asy
   analyticsModal.classList.remove('open');
 });
 
+function computeUrlaubCarryIn(year){
+  if(days.length === 0) return 0;
+  const allYears = days.map(d => fromISODate(d.date).getFullYear());
+  const minYear = Math.min(...allYears, year);
+  let carry = 0;
+  for(let y = minYear; y < year; y++){
+    const genommen = days.filter(d => d.type==='urlaub' && fromISODate(d.date).getFullYear()===y).length;
+    const effective = (settings.urlaubstage||0) + carry;
+    carry = effective - genommen;
+  }
+  return carry;
+}
+
 function renderAnalytics(){
   document.getElementById('yearLabel').textContent = analyticsYear;
 
   const yearDays = days.filter(d => fromISODate(d.date).getFullYear() === analyticsYear);
 
   const totalStd = yearDays.reduce((s,d)=> s + dayTotal(d), 0);
-  const urlaubGesamt = settings.urlaubstage || 0;
+  const urlaubBasis = settings.urlaubstage || 0;
+  const carryIn = computeUrlaubCarryIn(analyticsYear);
+  const urlaubGesamt = urlaubBasis + carryIn;
   const urlaubGenommen = yearDays.filter(d=>d.type==='urlaub').length;
-  const urlaubRest = Math.max(urlaubGesamt - urlaubGenommen, 0);
+  const urlaubRest = urlaubGesamt - urlaubGenommen; // kann jetzt negativ sein (Vorgriff)
   const krankTage = yearDays.filter(d=>d.type==='krankheit').length;
   const schuleTage = yearDays.filter(d=>d.type==='schule').length;
   const kundenCount = countDistinctKunden(yearDays);
+
+  const carryLine = carryIn !== 0
+    ? `<div class="settings-hint" style="margin:6px 0 0;">Basis ${urlaubBasis} Tage ${carryIn > 0 ? '+' : '–'} ${Math.abs(carryIn)} Tag(e) ${carryIn > 0 ? 'Resturlaub' : 'Vorgriff'} aus Vorjahr(en) = ${urlaubGesamt} Tage gesamt</div>`
+    : '';
 
   document.getElementById('yearDashboard').innerHTML = `
     <div class="settings-hint" style="margin:0 0 6px;">Urlaubskonto</div>
     <div class="dashboard" style="grid-template-columns:repeat(3,1fr);margin:0 0 14px;">
       <div class="dash-card"><div class="v">${urlaubGesamt}</div><div class="l">TAGE GESAMT</div></div>
       <div class="dash-card"><div class="v">${urlaubGenommen}</div><div class="l">GENOMMEN</div></div>
-      <div class="dash-card"><div class="v">${urlaubRest}</div><div class="l">ÜBRIG</div></div>
+      <div class="dash-card"><div class="v" style="${urlaubRest < 0 ? 'color:var(--danger);' : ''}">${urlaubRest}</div><div class="l">ÜBRIG</div></div>
     </div>
-    <div class="settings-hint" style="margin:0 0 6px;">Sonstiges</div>
+    ${carryLine}
+    <div class="settings-hint" style="margin:14px 0 6px;">Sonstiges</div>
     <div class="dashboard" style="grid-template-columns:repeat(4,1fr);margin:0;">
       <div class="dash-card"><div class="v">${fmtHours(totalStd)}</div><div class="l">STD GESAMT</div></div>
       <div class="dash-card"><div class="v">${krankTage}</div><div class="l">KRANK</div></div>
@@ -1535,18 +1651,18 @@ function currentMonthDays(){
 }
 
 function buildExportRows(monthDays){
-  const rows = [['Datum','Wochentag','KW','Typ','Kunde','Taetigkeit','Stunden']];
+  const rows = [['Datum','Wochentag','KW','Typ','Kunde','Taetigkeit','Stunden','Nachtarbeit','Schmutzzulage']];
   monthDays.forEach(d => {
     const dt = fromISODate(d.date);
     const wk = isoWeek(dt);
     if(d.type === 'work'){
       (d.items||[]).forEach(it => {
-        rows.push([fmtDate(dt), WEEKDAYS[dt.getDay()], wk, 'Arbeit', it.kunde||'', it.taetigkeit||'', parseFloat(it.stunden)||0]);
+        rows.push([fmtDate(dt), WEEKDAYS[dt.getDay()], wk, 'Arbeit', it.kunde||'', it.taetigkeit||'', parseFloat(it.stunden)||0, it.nachtarbeit?'Ja':'', it.schmutzzulage?'Ja':'']);
       });
     } else {
       const labels = {urlaub:'Urlaub', krankheit:'Krankheit', schule:'Schule', abbau:'Ueberstundenabbau'};
       const label = labels[d.type] || d.type;
-      rows.push([fmtDate(dt), WEEKDAYS[dt.getDay()], wk, label, '', '', dayTotal(d)]);
+      rows.push([fmtDate(dt), WEEKDAYS[dt.getDay()], wk, label, '', '', dayTotal(d), '', '']);
     }
   });
   return rows;
@@ -1556,12 +1672,18 @@ document.getElementById('btnExportCsv').addEventListener('click', () => {
   const monthDays = currentMonthDays();
   if(monthDays.length === 0){ toast('Keine Einträge in diesem Monat'); return; }
 
+  const sanitizeCsvCell = (val) => {
+    let s = String(val);
+    if(/^[=+\-@\t\r]/.test(s)) s = "'" + s; // CSV/Excel-Formel-Einschleusung verhindern
+    return s;
+  };
+
   const rows = buildExportRows(monthDays).map(r => r.map((cell,i) =>
     (i === 6 && typeof cell === 'number') ? fmtHours(cell) : cell
   ));
 
   const csv = rows.map(r => r.map(cell => {
-    const s = String(cell).replace(/"/g,'""');
+    const s = sanitizeCsvCell(cell).replace(/"/g,'""');
     return /[;"\n]/.test(s) ? `"${s}"` : s;
   }).join(';')).join('\r\n');
 
@@ -1581,9 +1703,12 @@ document.getElementById('btnExportXlsx').addEventListener('click', () => {
   if(monthDays.length === 0){ toast('Keine Einträge in diesem Monat'); return; }
   if(typeof XLSX === 'undefined'){ toast('Excel-Export gerade nicht verfügbar (kein Internet beim ersten Laden?)'); return; }
 
-  const rows = buildExportRows(monthDays);
+  const rows = buildExportRows(monthDays).map(r => r.map(cell => {
+    if(typeof cell === 'string' && /^[=+\-@\t\r]/.test(cell)) return "'" + cell;
+    return cell;
+  }));
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{wch:11},{wch:11},{wch:5},{wch:12},{wch:20},{wch:28},{wch:9}];
+  ws['!cols'] = [{wch:11},{wch:11},{wch:5},{wch:12},{wch:20},{wch:28},{wch:9},{wch:12},{wch:14}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Stundenzettel');
 
@@ -1593,7 +1718,8 @@ document.getElementById('btnExportXlsx').addEventListener('click', () => {
   toast('Excel-Datei heruntergeladen');
 });
 
-const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+  || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPad meldet sich seit iPadOS 13 wie ein Mac
 
 document.getElementById('btnExport').addEventListener('click', async () => {
   const monthDays = currentMonthDays();
@@ -1645,13 +1771,25 @@ function checkAppLock(){
       }
     }
   });
+
+  document.getElementById('lockPinForgot').addEventListener('click', () => {
+    const ok = window.confirm('PIN zurücksetzen? Die App-Sperre wird deaktiviert. Deine Stundendaten bleiben dabei vollständig erhalten – du kannst die Sperre in den Einstellungen jederzeit neu einrichten.');
+    if(!ok) return;
+    settings = {...settings, pinEnabled:false, pinHash:null};
+    const saveOk = saveSettings(settings);
+    sessionStorage.setItem('sz_unlocked', '1');
+    lockScreen.style.display = 'none';
+    toast(saveOk ? 'App-Sperre entfernt' : '⚠️ Konnte nicht gespeichert werden – Sperre bleibt evtl. beim nächsten Öffnen aktiv');
+  });
 }
 
 /* ===== Auswahlmodus & Tage teilen ===== */
 document.getElementById('toggleSelectMode').addEventListener('click', () => {
   selectMode = !selectMode;
   selectedDates = new Set();
-  document.getElementById('toggleSelectMode').textContent = selectMode ? 'Fertig' : 'Auswählen';
+  const btn = document.getElementById('toggleSelectMode');
+  btn.textContent = selectMode ? '✕ Fertig' : '☑ Auswählen';
+  btn.style.background = selectMode ? 'var(--danger)' : 'var(--primary)';
   updateShareSelectionBar();
   render();
 });
@@ -1683,18 +1821,29 @@ document.getElementById('btnShareSelected').addEventListener('click', async () =
   const fname = `Stunden-Geteilt_${first}_bis_${last}.json`;
   const blob = new Blob([json], {type:'application/json'});
 
+  let shared = false;
+  let canShareFiles = false;
+  let file = null;
   try{
-    const file = new File([blob], fname, {type:'application/json'});
-    if(navigator.canShare && navigator.canShare({files:[file]})){
+    file = new File([blob], fname, {type:'application/json'});
+    canShareFiles = !!(navigator.canShare && navigator.canShare({files:[file]}));
+  }catch(e){ canShareFiles = false; }
+
+  if(canShareFiles){
+    try{
       await navigator.share({files:[file], title:'Geteilte Stundentage'});
-    } else {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = fname;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
-  }catch(e){ /* Nutzer hat abgebrochen */ }
+      shared = true;
+    }catch(e){ shared = true; } // Nutzer hat das Teilen-Fenster abgebrochen -> kein Zwangs-Download
+  }
+
+  if(!shared){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Datei heruntergeladen (Teilen auf diesem Gerät nicht möglich)');
+  }
 
   selectMode = false;
   selectedDates = new Set();
@@ -1725,8 +1874,15 @@ document.getElementById('sharedFileInput').addEventListener('change', (e) => {
       return;
     }
 
-    pendingSharedDays = data.days;
-    renderShareImportList(data.sharedBy);
+    const { valid: cleanShared, rejected } = sanitizeImportedDays(data.days);
+    if(cleanShared.length === 0){
+      toast('Keine gültigen Tage in dieser Datei gefunden');
+      return;
+    }
+    if(rejected > 0) toast(`${rejected} ungültige(r) Eintrag/Einträge übersprungen`);
+
+    pendingSharedDays = cleanShared;
+    renderShareImportList(typeof data.sharedBy === 'string' ? data.sharedBy : '');
     settingsModal.classList.remove('open');
     shareImportModal.classList.add('open');
   };
@@ -1749,7 +1905,7 @@ function renderShareImportList(sharedBy){
     return `<div class="share-import-row">
       <input type="checkbox" class="share-import-check" data-idx="${idx}" checked>
       <div class="info">
-        <div class="d">${WEEKDAYS[dt.getDay()]}, ${fmtDate(dt)} – ${typeLabels[d.type]||d.type}</div>
+        <div class="d">${WEEKDAYS[dt.getDay()]}, ${fmtDate(dt)} – ${escapeHtml(typeLabels[d.type]||String(d.type))}</div>
         <div class="s">${fmtHours(std)} Std${existing ? ' · <span class="conflict">überschreibt bestehenden Eintrag</span>' : ''}</div>
       </div>
     </div>`;

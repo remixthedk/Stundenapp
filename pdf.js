@@ -20,6 +20,22 @@ function pdfPad(n){ return String(n).padStart(2,'0'); }
 function pdfFmtDate(dObj){ return `${pdfPad(dObj.getDate())}.${pdfPad(dObj.getMonth()+1)}.${dObj.getFullYear()}`; }
 function pdfFmtHours(n){ return (Math.round((n + Number.EPSILON) * 100) / 100).toFixed(2).replace('.', ','); }
 
+function drawZulageBadges(doc, x, y, it){
+  let curX = x;
+  const badge = (label, color) => {
+    doc.setFont('helvetica','bold'); doc.setFontSize(5.3);
+    const w = doc.getTextWidth(label) + 2.8;
+    doc.setFillColor(...color);
+    doc.roundedRect(curX, y-2.7, w, 3.4, 1, 1, 'F');
+    doc.setTextColor(255,255,255);
+    doc.text(label, curX+w/2, y-0.4, {align:'center'});
+    curX += w + 1.3;
+  };
+  if(it.nachtarbeit) badge('NACHT', [42,75,124]);
+  if(it.schmutzzulage) badge('SCHMUTZ', [124,75,42]);
+  return curX;
+}
+
 function dayTotalPdf(day){
   if(day.type === 'work') return (day.items||[]).reduce((s,i)=>s+(parseFloat(i.stunden)||0),0);
   if(day.type === 'abbau') return parseFloat(day.abbauStunden)||0;
@@ -72,6 +88,10 @@ function loadImageAsDataURL(imgEl){
 }
 
 async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl, forceDownload, periodLabel){
+  if(typeof window.jspdf === 'undefined'){
+    if(typeof toast === 'function') toast('PDF-Funktion nicht verfügbar – bitte einmal mit Internet öffnen, dann klappt es auch offline');
+    return;
+  }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit:'mm', format:'a4' });
 
@@ -96,6 +116,8 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
     const wk = isoWeek(new Date(d.date+'T00:00:00'));
     weekTotals[wk] = (weekTotals[wk]||0) + dayTotalPdf(d);
   });
+
+  const hasZulagen = monthDays.some(d => (d.items||[]).some(it => it.nachtarbeit || it.schmutzzulage));
 
   // ----- Pass 1: paginate -----
   const availableBase = PH - M*2 - HEADER_H - FOOTER_H - BOTTOMBAR_H - 4;
@@ -210,7 +232,12 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
           }
 
           doc.setFont('helvetica','bold'); doc.setFontSize(8.6); doc.setTextColor(20,20,20);
-          doc.text(it.kunde || 'Büroarbeiten', cx, cy);
+          const kundeName = it.kunde || 'Büroarbeiten';
+          doc.text(kundeName, cx, cy);
+          if(it.nachtarbeit || it.schmutzzulage){
+            const nameW = doc.getTextWidth(kundeName);
+            drawZulageBadges(doc, cx + nameW + 2, cy, it);
+          }
           doc.setFont('helvetica','bold'); doc.setFontSize(8.6); doc.setTextColor(60,68,75);
           doc.text(pdfFmtHours(parseFloat(it.stunden)||0), M+contentW-3, cy, {align:'right'});
           cy += 3.9;
@@ -241,6 +268,10 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
 
     // ---- Footer: nur dezente Seitenzahl + Erstellungsdatum ----
     const fy = PH - M - 6;
+    if(hasZulagen){
+      doc.setFont('helvetica','normal'); doc.setFontSize(6.3); doc.setTextColor(150,156,159);
+      doc.text('NACHT = Nachtarbeit · SCHMUTZ = Schmutzzulage (gesondert abgerechnet)', M, fy);
+    }
     doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(150,156,159);
     doc.text(`Seite ${pageNum}/${totalPages}`, M+contentW/2, fy, {align:'center'});
     doc.setFontSize(6.5); doc.setTextColor(175,180,183);
@@ -265,6 +296,10 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
 
 /* ===== Kompakte Variante: eine Zeile pro Tag statt Karte, für lange Zeiträume (z.B. ganzes Jahr) ===== */
 async function generateStundenzettelPDFCompact(monthDays, settings, viewDate, logoImgEl, forceDownload, periodLabel){
+  if(typeof window.jspdf === 'undefined'){
+    if(typeof toast === 'function') toast('PDF-Funktion nicht verfügbar – bitte einmal mit Internet öffnen, dann klappt es auch offline');
+    return;
+  }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit:'mm', format:'a4' });
 
@@ -288,6 +323,8 @@ async function generateStundenzettelPDFCompact(monthDays, settings, viewDate, lo
     const wk = isoWeek(new Date(d.date+'T00:00:00'));
     weekTotals[wk] = (weekTotals[wk]||0) + dayTotalPdf(d);
   });
+
+  const hasZulagen = monthDays.some(d => (d.items||[]).some(it => it.nachtarbeit || it.schmutzzulage));
 
   // ----- Pass 1: paginate -----
   const availableBase = PH - M*2 - HEADER_H - FOOTER_H - BOTTOMBAR_H - 2;
@@ -376,7 +413,14 @@ async function generateStundenzettelPDFCompact(monthDays, settings, viewDate, lo
 
       let detailText;
       if(day.type === 'work'){
-        const names = (day.items||[]).map(it => it.kunde || 'Büroarbeiten');
+        const names = (day.items||[]).map(it => {
+          let n = it.kunde || 'Büroarbeiten';
+          const tags = [];
+          if(it.nachtarbeit) tags.push('NACHT');
+          if(it.schmutzzulage) tags.push('SCHMUTZ');
+          if(tags.length) n += ` (${tags.join('/')})`;
+          return n;
+        });
         detailText = names.join(', ');
       } else {
         detailText = specialLabel(day);
@@ -407,6 +451,10 @@ async function generateStundenzettelPDFCompact(monthDays, settings, viewDate, lo
     doc.text(`${pdfFmtHours(runningTotal)} Std`, M+contentW-4, y+1+BOTTOMBAR_H/2+1.2, {align:'right'});
 
     const fy = PH - M - 6;
+    if(hasZulagen){
+      doc.setFont('helvetica','normal'); doc.setFontSize(6); doc.setTextColor(150,156,159);
+      doc.text('NACHT = Nachtarbeit · SCHMUTZ = Schmutzzulage', M, fy);
+    }
     doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(150,156,159);
     doc.text(`Seite ${pageNum}/${totalPages}`, M+contentW/2, fy, {align:'center'});
     doc.setFontSize(6); doc.setTextColor(175,180,183);
