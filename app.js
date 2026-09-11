@@ -242,7 +242,7 @@ function renderDashboard(monthDays){
 
 function isBueroLabel(name){
   const n = (name||'').trim().toLowerCase();
-  return n === '' || n === 'büroarbeiten';
+  return n === '' || n === 'büroarbeiten' || n === 'büroarbeit';
 }
 
 function countDistinctKunden(dayList){
@@ -1741,6 +1741,20 @@ function toast(msg){
   toastTimer = setTimeout(()=> el.classList.remove('show'), 1800);
 }
 
+/* ===== Download-Rückmeldung: zeigt deutlich, dass ein Download ausgelöst wurde ===== */
+function attachDownloadFeedback(linkEl, label){
+  const originalText = linkEl.textContent;
+  linkEl.onclick = () => {
+    toast('⬇️ Download gestartet' + (label ? ` – ${label}` : ''));
+    linkEl.classList.add('download-confirmed');
+    linkEl.textContent = '✓ Heruntergeladen';
+    setTimeout(() => {
+      linkEl.classList.remove('download-confirmed');
+      linkEl.textContent = originalText;
+    }, 2200);
+  };
+}
+
 /* ===== Service worker ===== */
 if('serviceWorker' in navigator){
   window.addEventListener('load', () => {
@@ -1858,6 +1872,7 @@ document.getElementById('btnShareSelected').addEventListener('click', () => {
   const downloadLink = document.getElementById('shareResultDownloadLink');
   downloadLink.href = url;
   downloadLink.download = fname;
+  attachDownloadFeedback(downloadLink);
 
   // Im Verlauf ablegen (neueste zuerst, max. 5)
   const newHistory = [{
@@ -1920,6 +1935,7 @@ function renderShareHistoryList(){
     historyUrls.push(url);
     a.href = url;
     a.download = h.fname;
+    attachDownloadFeedback(a);
   });
 }
 
@@ -2026,7 +2042,7 @@ document.querySelectorAll('.settings-group-head').forEach(btn => {
 });
 
 /* ===== Init ===== */
-const APP_VERSION = 'v35'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v37'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 applyDarkMode();
 const logoImg = new Image();
