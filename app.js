@@ -1959,6 +1959,8 @@ document.querySelectorAll('.settings-group-head').forEach(btn => {
 });
 
 /* ===== Init ===== */
+const APP_VERSION = 'v32'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 applyDarkMode();
 const logoImg = new Image();
 logoImg.src = 'logo.png';
