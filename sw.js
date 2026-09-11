@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stundenzettel-v18';
+const CACHE_NAME = 'stundenzettel-v19';
 const ASSETS = [
   './index.html',
   './app.js',
@@ -7,7 +7,8 @@ const ASSETS = [
   './icon-192.png',
   './icon-512.png',
   './logo.png',
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'
 ];
 
 self.addEventListener('install', (event) => {

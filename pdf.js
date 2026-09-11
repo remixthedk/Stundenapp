@@ -71,9 +71,12 @@ function loadImageAsDataURL(imgEl){
   });
 }
 
-async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl){
+async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl, forceDownload, periodLabel){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit:'mm', format:'a4' });
+
+  const createdAt = new Date();
+  const createdAtStr = `${pdfFmtDate(createdAt)}, ${pdfPad(createdAt.getHours())}:${pdfPad(createdAt.getMinutes())} Uhr`;
 
   const logo = await loadImageAsDataURL(logoImgEl);
   const LOGO_W = 20; // mm, dezent
@@ -259,12 +262,14 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
 
     doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(140,146,150);
     doc.text(`Seite ${pageNum}/${totalPages}`, M+contentW/2, fy+17.5, {align:'center'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(6.5); doc.setTextColor(170,175,178);
+    doc.text(`Erstellt am ${createdAtStr}`, M+contentW, fy+17.5, {align:'right'});
   });
 
-  const fname = `${(settings.name||'Unbekannt').replace(/\s+/g,'-')}-${MONTHS[viewDate.getMonth()]}-${viewDate.getFullYear()}.pdf`;
+  const fname = `${(settings.name||'Unbekannt').replace(/\s+/g,'-')}-${periodLabel || (MONTHS[viewDate.getMonth()]+'-'+viewDate.getFullYear())}.pdf`;
 
   const blob = doc.output('blob');
-  if(navigator.canShare){
+  if(!forceDownload && navigator.canShare){
     try{
       const file = new File([blob], fname, {type:'application/pdf'});
       if(navigator.canShare({files:[file]})){

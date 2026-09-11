@@ -65,7 +65,7 @@ const DEFAULT_SETTINGS = {
   monThuStart:'07:00', monThuEnd:'16:15', monThuPause:60,
   friStart:'07:00', friEnd:'12:30', friPause:30,
   darkMode:false, lastBackupAt:null, urlaubstage:30,
-  pinEnabled:false, pinHash:null
+  pinEnabled:false, pinHash:null, emailRecipient:'stunden@john-haustechnik.net'
 };
 
 function isStorageAvailable(){
@@ -333,44 +333,60 @@ function renderCalendar(monthDays){
   const grid = document.getElementById('calGrid');
   grid.innerHTML = '';
 
-  // leading muted cells (previous month)
+  // Flache Liste aller Zellen (führende/nachfolgende Monatsränder + echte Tage) aufbauen
+  const cells = [];
   for(let i=offset-1; i>=0; i--){
-    const cell = document.createElement('div');
-    cell.className = 'cal-cell muted';
-    cell.textContent = daysInPrevMonth - i;
-    grid.appendChild(cell);
+    cells.push({muted:true, label: daysInPrevMonth - i});
   }
-
-  // actual days
   for(let day=1; day<=daysInMonth; day++){
     const dateObj = new Date(y, m, day);
-    const iso = toISODate(dateObj);
-    const entry = byDate[iso];
-    const cell = document.createElement('div');
-    cell.className = 'cal-cell';
-    if(iso === todayISO) cell.classList.add('today');
-    const holidayName = isHoliday(dateObj);
-    if(holidayName) cell.classList.add('holiday');
-
-    if(entry){
-      cell.classList.add('has-entry', 'type-'+entry.type);
-      cell.innerHTML = `<span>${day}</span><span class="hrs">${fmtHours(dayTotal(entry))}</span>`;
-    } else {
-      cell.innerHTML = `<span>${day}</span>`;
-    }
-    if(holidayName) cell.title = holidayName;
-    cell.addEventListener('click', () => openDayModal(iso));
-    grid.appendChild(cell);
+    cells.push({muted:false, day, dateObj, iso: toISODate(dateObj)});
   }
-
-  // trailing muted cells to complete the last row
   const totalCells = offset + daysInMonth;
   const trailing = (7 - (totalCells % 7)) % 7;
   for(let i=1; i<=trailing; i++){
-    const cell = document.createElement('div');
-    cell.className = 'cal-cell muted';
-    cell.textContent = i;
-    grid.appendChild(cell);
+    cells.push({muted:true, label:i});
+  }
+
+  // In 7er-Zeilen gruppieren, je Zeile eine Wochensummen-Zelle anhängen
+  for(let rowStart=0; rowStart<cells.length; rowStart+=7){
+    const rowCells = cells.slice(rowStart, rowStart+7);
+    let weekSum = 0;
+
+    rowCells.forEach(c => {
+      const cell = document.createElement('div');
+      if(c.muted){
+        cell.className = 'cal-cell muted';
+        cell.textContent = c.label;
+        grid.appendChild(cell);
+        return;
+      }
+      const entry = byDate[c.iso];
+      cell.className = 'cal-cell';
+      const dow = c.dateObj.getDay();
+      if(dow === 0 || dow === 6) cell.classList.add('weekend');
+      if(c.iso === todayISO) cell.classList.add('today');
+      const holidayName = isHoliday(c.dateObj);
+      if(holidayName) cell.classList.add('holiday');
+
+      if(entry){
+        cell.classList.add('has-entry', 'type-'+entry.type);
+        cell.innerHTML = `<span>${c.day}</span><span class="hrs">${fmtHours(dayTotal(entry))}</span>`;
+        weekSum += dayTotal(entry);
+      } else {
+        cell.innerHTML = `<span>${c.day}</span>`;
+      }
+      if(holidayName) cell.title = holidayName;
+      cell.addEventListener('click', () => openDayModal(c.iso));
+      grid.appendChild(cell);
+    });
+
+    const sumCell = document.createElement('div');
+    sumCell.className = 'cal-cell cal-weeksum';
+    sumCell.innerHTML = weekSum > 0
+      ? `<span class="hrs">${fmtHours(weekSum)}</span>`
+      : `<span class="hrs muted-sum">–</span>`;
+    grid.appendChild(sumCell);
   }
 }
 
@@ -662,6 +678,13 @@ document.getElementById('saveDay').addEventListener('click', () => {
   const date = document.getElementById('dayDate').value;
   if(!date){ toast('Bitte ein Datum wählen'); return; }
   if(isMonthLocked(fromISODate(date))){ toast('Monat ist abgeschlossen'); return; }
+
+  const existingOther = days.find(d => d.date === date);
+  if(existingOther && editingDate !== date){
+    const ok = window.confirm(`Für ${fmtDate(fromISODate(date))} existiert bereits ein Eintrag. Wirklich überschreiben?`);
+    if(!ok) return;
+  }
+
   const type = document.querySelector('.type-tab.active').dataset.type;
 
   let record = { date, type };
@@ -709,6 +732,7 @@ function openSettings(){
   document.getElementById('setStreet').value = settings.street;
   document.getElementById('setCity').value = settings.city;
   document.getElementById('setUrlaubstage').value = settings.urlaubstage != null ? settings.urlaubstage : 30;
+  document.getElementById('setEmailRecipient').value = settings.emailRecipient || '';
   document.getElementById('setMonThuStart').value = settings.monThuStart;
   document.getElementById('setMonThuEnd').value = settings.monThuEnd;
   document.getElementById('setMonThuPause').value = settings.monThuPause;
@@ -763,6 +787,7 @@ document.getElementById('saveSettings').addEventListener('click', () => {
     street: document.getElementById('setStreet').value.trim(),
     city: document.getElementById('setCity').value.trim(),
     urlaubstage: parseFloat(document.getElementById('setUrlaubstage').value) || 0,
+    emailRecipient: document.getElementById('setEmailRecipient').value.trim(),
     monThuStart: document.getElementById('setMonThuStart').value,
     monThuEnd: document.getElementById('setMonThuEnd').value,
     monThuPause: parseFloat(document.getElementById('setMonThuPause').value) || 0,
@@ -906,6 +931,33 @@ function runSearch(){
   });
 }
 
+/* ===== QR-Code zur Installation ===== */
+const qrModal = document.getElementById('qrModal');
+document.getElementById('btnShowQr').addEventListener('click', () => {
+  const url = window.location.origin + window.location.pathname;
+  document.getElementById('qrUrlText').textContent = url;
+  const container = document.getElementById('qrCodeContainer');
+  container.innerHTML = '';
+  try{
+    new QRCode(container, { text: url, width: 200, height: 200, colorDark: '#1B4B66', colorLight: '#ffffff' });
+  }catch(e){
+    container.innerHTML = `<div class="settings-hint">QR-Code konnte nicht erzeugt werden (Internet nötig beim ersten Laden). Link unten kann trotzdem geteilt werden.</div>`;
+  }
+  qrModal.classList.add('open');
+});
+document.getElementById('closeQr').addEventListener('click', () => qrModal.classList.remove('open'));
+qrModal.addEventListener('click', (e) => { if(e.target === qrModal) qrModal.classList.remove('open'); });
+
+document.getElementById('btnCopyLink').addEventListener('click', async () => {
+  const url = document.getElementById('qrUrlText').textContent;
+  try{
+    await navigator.clipboard.writeText(url);
+    toast('Link kopiert');
+  }catch(e){
+    toast('Kopieren nicht möglich – Link manuell markieren');
+  }
+});
+
 /* ===== Backup: Export / Import ===== */
 function markBackupDone(){
   settings = {...settings, lastBackupAt: new Date().toISOString()};
@@ -1003,6 +1055,22 @@ document.getElementById('closeAnalytics').addEventListener('click', () => analyt
 analyticsModal.addEventListener('click', (e) => { if(e.target === analyticsModal) analyticsModal.classList.remove('open'); });
 document.getElementById('prevYear').addEventListener('click', () => { analyticsYear--; renderAnalytics(); });
 document.getElementById('nextYear').addEventListener('click', () => { analyticsYear++; renderAnalytics(); });
+
+document.getElementById('btnExportYearPdf').addEventListener('click', async () => {
+  const yearDays = days
+    .filter(d => fromISODate(d.date).getFullYear() === analyticsYear)
+    .sort((a,b)=> a.date.localeCompare(b.date));
+  if(yearDays.length === 0){ toast('Keine Einträge in diesem Jahr'); return; }
+  if(!settings.name){ toast('Bitte zuerst Name eintragen'); return; }
+
+  if(isMobileDevice && settings.emailRecipient){
+    const ok = window.confirm(`Ziel für den PDF-Versand:\n\n${settings.emailRecipient}\n\nWeiter zum Teilen-Menü?`);
+    if(!ok) return;
+  }
+
+  await generateStundenzettelPDF(yearDays, settings, viewDate, logoImg, !isMobileDevice, `Jahr-${analyticsYear}`);
+  analyticsModal.classList.remove('open');
+});
 
 function renderAnalytics(){
   document.getElementById('yearLabel').textContent = analyticsYear;
@@ -1174,11 +1242,19 @@ document.getElementById('btnExportCsv').addEventListener('click', () => {
   toast('CSV heruntergeladen');
 });
 
+const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
 document.getElementById('btnExport').addEventListener('click', async () => {
   const monthDays = currentMonthDays();
   if(monthDays.length === 0){ toast('Keine Einträge in diesem Monat'); return; }
   if(!settings.name){ toast('Bitte zuerst Name eintragen'); return; }
-  await generateStundenzettelPDF(monthDays, settings, viewDate, logoImg);
+
+  if(isMobileDevice && settings.emailRecipient){
+    const ok = window.confirm(`Ziel für den PDF-Versand:\n\n${settings.emailRecipient}\n\nWeiter zum Teilen-Menü?`);
+    if(!ok) return;
+  }
+
+  await generateStundenzettelPDF(monthDays, settings, viewDate, logoImg, !isMobileDevice);
   settingsModal.classList.remove('open');
 });
 

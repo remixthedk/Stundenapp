@@ -67,14 +67,19 @@
   .month-nav button:active{background:var(--bg);}
   .month-nav .label{font-weight:600;font-size:15px;}
   .calendar-wrap{margin:16px 16px 0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 8px;}
-  .cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:11px;color:var(--muted);font-weight:600;margin-bottom:4px;}
-  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+  .cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr) 0.85fr;text-align:center;font-size:11px;color:var(--muted);font-weight:600;margin-bottom:4px;}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr) 0.85fr;gap:3px;}
+  .cal-weeksum{background:transparent;font-weight:700;color:var(--primary);font-size:10.5px;}
+  .cal-weeksum .muted-sum{color:var(--border);font-weight:400;}
+  body.dark .cal-weeksum{color:#3E8FB0;}
   .cal-cell{
     aspect-ratio:1/1;border-radius:7px;display:flex;flex-direction:column;
     align-items:center;justify-content:center;font-size:12px;position:relative;
     background:var(--bg);color:var(--text);
   }
   .cal-cell.muted{color:#C7CDD1;background:transparent;}
+  .cal-cell.weekend:not(.has-entry):not(.muted){background:#EBECE9;}
+  body.dark .cal-cell.weekend:not(.has-entry):not(.muted){background:#1A1F22;}
   .cal-cell.today{box-shadow:inset 0 0 0 1.5px var(--primary);}
   .cal-cell.has-entry{color:#fff;font-weight:600;}
   .cal-cell .hrs{font-size:9px;font-weight:600;margin-top:1px;}
@@ -342,7 +347,7 @@
 
 <div class="calendar-wrap">
   <div class="cal-weekdays">
-    <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span>
+    <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span><span>Σ</span>
   </div>
   <div class="cal-grid" id="calGrid"></div>
   <div class="cal-legend">
@@ -382,6 +387,8 @@
     <input type="text" id="setCity" placeholder="26xxx Ort">
     <label>Jahresurlaubstage</label>
     <input type="number" id="setUrlaubstage" placeholder="z.B. 30" step="1" min="0">
+    <label>E-Mail-Empfänger (für PDF-Versand)</label>
+    <input type="email" id="setEmailRecipient" placeholder="stunden@john-haustechnik.net">
     <hr class="sep">
     <div class="settings-hint">Standard-Arbeitszeiten – werden beim Erfassen vorausgefüllt, pro Tag änderbar.</div>
     <label>Montag – Donnerstag</label>
@@ -432,6 +439,10 @@
       <button class="btn secondary" id="btnBackupImport" style="flex:1">Sicherung laden</button>
     </div>
     <input type="file" id="backupFileInput" accept="application/json" style="display:none;">
+    <hr class="sep">
+    <div class="modal-actions">
+      <button class="btn secondary" id="btnShowQr" style="flex:1">📱 QR-Code zur Installation</button>
+    </div>
     <hr class="sep">
     <div class="modal-actions">
       <button class="btn primary" id="saveSettings" style="flex:1">Speichern</button>
@@ -497,10 +508,14 @@
       <button id="closeAnalytics">✕</button>
     </div>
 
-    <div class="month-nav" style="margin:0 0 14px;">
+    <div class="month-nav" style="margin:0 0 10px;">
       <button id="prevYear">‹</button>
       <div class="label" id="yearLabel">2026</div>
       <button id="nextYear">›</button>
+    </div>
+
+    <div class="modal-actions" style="margin:0 0 16px;">
+      <button class="btn secondary" id="btnExportYearPdf" style="flex:1">Ganzes Jahr als PDF exportieren</button>
     </div>
 
     <div id="yearDashboard" style="margin:0 0 16px;"></div>
@@ -513,6 +528,20 @@
 
     <div class="settings-hint" style="margin-bottom:8px;">Monatsübersicht</div>
     <div id="yearTable"></div>
+  </div>
+</div>
+
+<!-- QR Modal -->
+<div class="modal-backdrop" id="qrModal">
+  <div class="modal-sheet" style="text-align:center;">
+    <div class="modal-head" style="text-align:left;">
+      <h2>Installation per QR-Code</h2>
+      <button id="closeQr">✕</button>
+    </div>
+    <div class="settings-hint" style="margin-bottom:14px;">Mitarbeiter scannt den Code mit der Handy-Kamera und landet direkt auf der App zum Installieren.</div>
+    <div id="qrCodeContainer" style="display:flex;justify-content:center;margin-bottom:14px;"></div>
+    <div class="settings-hint" id="qrUrlText" style="word-break:break-all;margin-bottom:14px;"></div>
+    <button class="btn secondary" id="btnCopyLink" style="width:100%;">Link kopieren</button>
   </div>
 </div>
 
@@ -554,6 +583,7 @@
 <div class="toast" id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="pdf.js"></script>
 <script src="app.js"></script>
 </body>
