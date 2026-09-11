@@ -1805,7 +1805,9 @@ function updateShareSelectionBar(){
   }
 }
 
-document.getElementById('btnShareSelected').addEventListener('click', async () => {
+let currentShareUrl = null;
+
+document.getElementById('btnShareSelected').addEventListener('click', () => {
   const selectedDays = days.filter(d => selectedDates.has(d.date)).sort((a,b)=> a.date.localeCompare(b.date));
   if(selectedDays.length === 0) return;
 
@@ -1820,8 +1822,15 @@ document.getElementById('btnShareSelected').addEventListener('click', async () =
   const first = selectedDays[0].date, last = selectedDays[selectedDays.length-1].date;
   const fname = `Stunden-Geteilt_${first}_bis_${last}.json`;
   const blob = new Blob([json], {type:'application/json'});
+  if(currentShareUrl) URL.revokeObjectURL(currentShareUrl);
+  const url = URL.createObjectURL(blob);
+  currentShareUrl = url;
 
-  let shared = false;
+  const downloadLink = document.getElementById('shareResultDownloadLink');
+  downloadLink.href = url;
+  downloadLink.download = fname;
+
+  const shareBtn = document.getElementById('shareResultShareBtn');
   let canShareFiles = false;
   let file = null;
   try{
@@ -1829,28 +1838,27 @@ document.getElementById('btnShareSelected').addEventListener('click', async () =
     canShareFiles = !!(navigator.canShare && navigator.canShare({files:[file]}));
   }catch(e){ canShareFiles = false; }
 
-  if(canShareFiles){
+  shareBtn.style.display = canShareFiles ? 'block' : 'none';
+  shareBtn.onclick = async () => {
     try{
       await navigator.share({files:[file], title:'Geteilte Stundentage'});
-      shared = true;
-    }catch(e){ shared = true; } // Nutzer hat das Teilen-Fenster abgebrochen -> kein Zwangs-Download
-  }
-
-  if(!shared){
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = fname;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast('Datei heruntergeladen (Teilen auf diesem Gerät nicht möglich)');
-  }
+      shareResultModal.classList.remove('open');
+    }catch(e){ /* Nutzer hat abgebrochen -> Modal bleibt offen, Download-Link bleibt nutzbar */ }
+  };
 
   selectMode = false;
   selectedDates = new Set();
-  document.getElementById('toggleSelectMode').textContent = 'Auswählen';
+  document.getElementById('toggleSelectMode').textContent = '☑ Auswählen';
+  document.getElementById('toggleSelectMode').style.background = 'var(--primary)';
   updateShareSelectionBar();
   render();
+
+  shareResultModal.classList.add('open');
 });
+
+const shareResultModal = document.getElementById('shareResultModal');
+document.getElementById('closeShareResult').addEventListener('click', () => shareResultModal.classList.remove('open'));
+shareResultModal.addEventListener('click', (e) => { if(e.target === shareResultModal) shareResultModal.classList.remove('open'); });
 
 /* ===== Geteilte Tage importieren ===== */
 const shareImportModal = document.getElementById('shareImportModal');
