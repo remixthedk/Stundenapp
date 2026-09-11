@@ -7,6 +7,7 @@ const TYPE_COLORS = {
   work:      { accent:[27,75,102],  tint:[234,241,245] },
   urlaub:    { accent:[124,154,174],tint:[238,241,242] },
   krankheit: { accent:[179,67,43],  tint:[247,234,231] },
+  schule:    { accent:[75,94,170],  tint:[235,237,247] },
   abbau:     { accent:[201,98,42],  tint:[247,238,227] },
 };
 
@@ -28,6 +29,7 @@ function dayTotalPdf(day){
 function specialLabel(day){
   if(day.type==='urlaub') return 'Urlaub';
   if(day.type==='krankheit') return 'Krankheit';
+  if(day.type==='schule') return 'Schule';
   const v = parseFloat(day.abbauStunden)||0;
   return `Überstundenabbau · ${v>0?'+':''}${pdfFmtHours(v)} Std`;
 }

@@ -24,7 +24,7 @@ const DEFAULT_SETTINGS = {
   name:'', street:'', city:'',
   monThuStart:'07:00', monThuEnd:'16:15', monThuPause:60,
   friStart:'07:00', friEnd:'12:30', friPause:30,
-  darkMode:false, lastBackupAt:null
+  darkMode:false, lastBackupAt:null, urlaubstage:30
 };
 
 function loadSettings(){
@@ -75,12 +75,14 @@ function renderDashboard(monthDays){
   const total = monthDays.reduce((s,d)=> s + dayTotal(d), 0);
   const urlaubTage = monthDays.filter(d=>d.type==='urlaub').length;
   const krankTage = monthDays.filter(d=>d.type==='krankheit').length;
+  const schuleTage = monthDays.filter(d=>d.type==='schule').length;
   const abbau = monthDays.filter(d=>d.type==='abbau').reduce((s,d)=> s + dayTotal(d), 0);
 
   document.getElementById('dashboard').innerHTML = `
     <div class="dash-card"><div class="v">${fmtHours(total)}</div><div class="l">STD GESAMT</div></div>
     <div class="dash-card"><div class="v">${urlaubTage}</div><div class="l">URLAUB</div></div>
     <div class="dash-card"><div class="v">${krankTage}</div><div class="l">KRANK</div></div>
+    <div class="dash-card"><div class="v">${schuleTage}</div><div class="l">SCHULE</div></div>
     <div class="dash-card"><div class="v">${fmtHours(abbau)}</div><div class="l">ABBAU</div></div>
   `;
 }
@@ -273,9 +275,9 @@ function render(){
             <span>${fmtHours(parseFloat(it.stunden)||0)}</span>
           </div>`).join('');
       } else {
-        const label = d.type==='urlaub' ? 'Urlaub' : d.type==='krankheit' ? 'Krankheit' : 'Überstundenabbau';
-        const cls = d.type==='urlaub' ? 'urlaub' : d.type==='krankheit' ? 'krankheit' : 'abbau';
-        bodyHtml = `<span class="badge ${cls}">${label}</span>`;
+        const labels = {urlaub:'Urlaub', krankheit:'Krankheit', schule:'Schule', abbau:'Überstundenabbau'};
+        const label = labels[d.type] || d.type;
+        bodyHtml = `<span class="badge ${d.type}">${label}</span>`;
       }
 
       card.innerHTML = `
@@ -501,6 +503,7 @@ function openSettings(){
   document.getElementById('setName').value = settings.name;
   document.getElementById('setStreet').value = settings.street;
   document.getElementById('setCity').value = settings.city;
+  document.getElementById('setUrlaubstage').value = settings.urlaubstage != null ? settings.urlaubstage : 30;
   document.getElementById('setMonThuStart').value = settings.monThuStart;
   document.getElementById('setMonThuEnd').value = settings.monThuEnd;
   document.getElementById('setMonThuPause').value = settings.monThuPause;
@@ -527,6 +530,7 @@ document.getElementById('saveSettings').addEventListener('click', () => {
     name: document.getElementById('setName').value.trim(),
     street: document.getElementById('setStreet').value.trim(),
     city: document.getElementById('setCity').value.trim(),
+    urlaubstage: parseFloat(document.getElementById('setUrlaubstage').value) || 0,
     monThuStart: document.getElementById('setMonThuStart').value,
     monThuEnd: document.getElementById('setMonThuEnd').value,
     monThuPause: parseFloat(document.getElementById('setMonThuPause').value) || 0,
@@ -674,6 +678,63 @@ document.getElementById('backupFileInput').addEventListener('change', (e) => {
   e.target.value = '';
 });
 
+/* ===== Jahresübersicht ===== */
+const analyticsModal = document.getElementById('analyticsModal');
+let analyticsYear = new Date().getFullYear();
+
+document.getElementById('btnAnalytics').addEventListener('click', () => {
+  analyticsYear = viewDate.getFullYear();
+  renderAnalytics();
+  analyticsModal.classList.add('open');
+});
+document.getElementById('closeAnalytics').addEventListener('click', () => analyticsModal.classList.remove('open'));
+analyticsModal.addEventListener('click', (e) => { if(e.target === analyticsModal) analyticsModal.classList.remove('open'); });
+document.getElementById('prevYear').addEventListener('click', () => { analyticsYear--; renderAnalytics(); });
+document.getElementById('nextYear').addEventListener('click', () => { analyticsYear++; renderAnalytics(); });
+
+function renderAnalytics(){
+  document.getElementById('yearLabel').textContent = analyticsYear;
+
+  const yearDays = days.filter(d => fromISODate(d.date).getFullYear() === analyticsYear);
+
+  const totalStd = yearDays.reduce((s,d)=> s + dayTotal(d), 0);
+  const urlaubGenommen = yearDays.filter(d=>d.type==='urlaub').length;
+  const urlaubRest = Math.max((settings.urlaubstage||0) - urlaubGenommen, 0);
+  const krankTage = yearDays.filter(d=>d.type==='krankheit').length;
+  const schuleTage = yearDays.filter(d=>d.type==='schule').length;
+  const abbauSaldo = yearDays.filter(d=>d.type==='abbau').reduce((s,d)=> s + dayTotal(d), 0);
+
+  document.getElementById('yearDashboard').innerHTML = `
+    <div class="dash-card"><div class="v">${fmtHours(totalStd)}</div><div class="l">STD GESAMT</div></div>
+    <div class="dash-card"><div class="v">${urlaubRest}</div><div class="l">URLAUB REST</div></div>
+    <div class="dash-card"><div class="v">${urlaubGenommen}</div><div class="l">URLAUB WEG</div></div>
+    <div class="dash-card"><div class="v">${krankTage}</div><div class="l">KRANK</div></div>
+    <div class="dash-card"><div class="v">${schuleTage}</div><div class="l">SCHULE</div></div>
+  `;
+
+  const table = document.getElementById('yearTable');
+  table.innerHTML = '';
+  for(let m=0; m<12; m++){
+    const mDays = yearDays.filter(d => fromISODate(d.date).getMonth() === m);
+    if(mDays.length === 0) continue;
+    const std = mDays.reduce((s,d)=> s + dayTotal(d), 0);
+    const u = mDays.filter(d=>d.type==='urlaub').length;
+    const k = mDays.filter(d=>d.type==='krankheit').length;
+    const row = document.createElement('div');
+    row.className = 'year-row';
+    row.innerHTML = `
+      <span class="ym">${MONTHS[m]}</span>
+      <span class="yv"><b>${fmtHours(std)}</b> Std</span>
+      <span class="yv">${u} U</span>
+      <span class="yv">${k} K</span>
+    `;
+    table.appendChild(row);
+  }
+  if(table.innerHTML === ''){
+    table.innerHTML = `<div class="empty-state" style="padding:30px 10px;">Keine Einträge in ${analyticsYear}.</div>`;
+  }
+}
+
 /* ===== Month nav ===== */
 document.getElementById('prevMonth').addEventListener('click', () => {
   viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth()-1, 1);
@@ -705,7 +766,8 @@ document.getElementById('btnExportCsv').addEventListener('click', () => {
         rows.push([fmtDate(dt), WEEKDAYS[dt.getDay()], wk, 'Arbeit', it.kunde||'', it.taetigkeit||'', fmtHours(parseFloat(it.stunden)||0)]);
       });
     } else {
-      const label = d.type==='urlaub' ? 'Urlaub' : d.type==='krankheit' ? 'Krankheit' : 'Ueberstundenabbau';
+      const csvLabels = {urlaub:'Urlaub', krankheit:'Krankheit', schule:'Schule', abbau:'Ueberstundenabbau'};
+      const label = csvLabels[d.type] || d.type;
       rows.push([fmtDate(dt), WEEKDAYS[dt.getDay()], wk, label, '', '', fmtHours(dayTotal(d))]);
     }
   });

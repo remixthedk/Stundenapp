@@ -81,12 +81,14 @@
   .cal-cell.type-work{background:var(--primary);}
   .cal-cell.type-urlaub{background:#7C9AAE;}
   .cal-cell.type-krankheit{background:var(--danger);}
+  .cal-cell.type-schule{background:#4B5EAA;}
   .cal-cell.type-abbau{background:var(--accent-heiz);}
   .cal-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;padding:0 2px;font-size:11px;color:var(--muted);}
   .cal-legend .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle;}
   .cal-legend .dot.work{background:var(--primary);}
   .cal-legend .dot.urlaub{background:#7C9AAE;}
   .cal-legend .dot.krankheit{background:var(--danger);}
+  .cal-legend .dot.schule{background:#4B5EAA;}
   .cal-legend .dot.abbau{background:var(--accent-heiz);}
   .list-heading{margin:20px 16px 4px;font-size:12.5px;font-weight:600;color:var(--muted);}
   .week-group{margin:8px 16px 0;}
@@ -114,6 +116,7 @@
   }
   .badge.urlaub{background:#E7EEF2;color:var(--primary);}
   .badge.krankheit{background:#F5E6E1;color:var(--danger);}
+  .badge.schule{background:#E6E9F2;color:#4B5EAA;}
   .badge.abbau{background:#EFE6D8;color:var(--accent-heiz);}
   .item-line{
     display:flex;justify-content:space-between;
@@ -214,17 +217,26 @@
   .search-result .sr-sub{font-size:12px;color:var(--muted);margin-top:3px;}
   .search-empty{text-align:center;color:var(--muted);font-size:13.5px;padding:30px 20px;}
 
+  .year-row{
+    display:flex;align-items:center;justify-content:space-between;
+    background:var(--surface);border:1px solid var(--border);border-radius:9px;
+    padding:9px 12px;margin-bottom:6px;font-size:13px;
+  }
+  .year-row .ym{font-weight:600;flex:1;}
+  .year-row .yv{width:56px;text-align:right;color:var(--muted);font-size:12px;}
+  .year-row .yv b{color:var(--text);font-weight:600;}
+
   /* Dashboard */
   .dashboard{
-    display:grid;grid-template-columns:repeat(4,1fr);gap:8px;
+    display:grid;grid-template-columns:repeat(5,1fr);gap:6px;
     margin:12px 16px 0;
   }
   .dash-card{
     background:var(--surface);border:1px solid var(--border);border-radius:9px;
-    padding:10px 6px;text-align:center;
+    padding:8px 3px;text-align:center;
   }
-  .dash-card .v{font-size:16px;font-weight:700;color:var(--primary);}
-  .dash-card .l{font-size:9.5px;color:var(--muted);margin-top:2px;font-weight:600;}
+  .dash-card .v{font-size:14px;font-weight:700;color:var(--primary);}
+  .dash-card .l{font-size:8.5px;color:var(--muted);margin-top:2px;font-weight:600;}
 
   /* Notice banner */
   .notice-banner{
@@ -258,6 +270,7 @@
   }
   body.dark .badge.urlaub{background:#26313A;color:#8FB6CC;}
   body.dark .badge.krankheit{background:#3A2621;color:#E08B72;}
+  body.dark .badge.schule{background:#242B45;color:#8C9EE8;}
   body.dark .badge.abbau{background:#3A2E1E;color:#E0A96F;}
   body.dark .notice-banner{background:#3A2E1E;border-color:#5C4826;color:#E0C48C;}
   body.dark .notice-banner button{color:#E0C48C;}
@@ -274,6 +287,7 @@
     <div class="sub" id="employeeSubline">John Haustechnik</div>
   </div>
   <div style="display:flex;gap:8px;">
+    <button class="icon-btn" id="btnAnalytics" aria-label="Jahresübersicht">📊</button>
     <button class="icon-btn" id="btnSearch" aria-label="Suche">🔍</button>
     <button class="icon-btn" id="btnSettings" aria-label="Einstellungen">⚙</button>
   </div>
@@ -302,6 +316,7 @@
     <span><i class="dot work"></i>Arbeit</span>
     <span><i class="dot urlaub"></i>Urlaub</span>
     <span><i class="dot krankheit"></i>Krankheit</span>
+    <span><i class="dot schule"></i>Schule</span>
     <span><i class="dot abbau"></i>Abbau</span>
   </div>
 </div>
@@ -330,6 +345,8 @@
     <input type="text" id="setStreet" placeholder="Straße 1">
     <label>PLZ &amp; Ort</label>
     <input type="text" id="setCity" placeholder="26xxx Ort">
+    <label>Jahresurlaubstage</label>
+    <input type="number" id="setUrlaubstage" placeholder="z.B. 30" step="1" min="0">
     <hr class="sep">
     <div class="settings-hint">Standard-Arbeitszeiten – werden beim Erfassen vorausgefüllt, pro Tag änderbar.</div>
     <label>Montag – Donnerstag</label>
@@ -384,6 +401,7 @@
       <div class="type-tab active" data-type="work">Arbeit</div>
       <div class="type-tab" data-type="urlaub">Urlaub</div>
       <div class="type-tab" data-type="krankheit">Krankheit</div>
+      <div class="type-tab" data-type="schule">Schule</div>
       <div class="type-tab" data-type="abbau">Überstundenabbau</div>
     </div>
 
@@ -414,6 +432,27 @@
       <button class="btn primary" id="saveDay" style="flex:1">Speichern</button>
     </div>
     <button class="delete-link" id="deleteDay" style="display:none;">Tag löschen</button>
+  </div>
+</div>
+
+<!-- Analytics Modal -->
+<div class="modal-backdrop" id="analyticsModal">
+  <div class="modal-sheet" style="min-height:80vh;">
+    <div class="modal-head">
+      <h2>Jahresübersicht</h2>
+      <button id="closeAnalytics">✕</button>
+    </div>
+
+    <div class="month-nav" style="margin:0 0 14px;">
+      <button id="prevYear">‹</button>
+      <div class="label" id="yearLabel">2026</div>
+      <button id="nextYear">›</button>
+    </div>
+
+    <div class="dashboard" id="yearDashboard" style="margin:0 0 16px;"></div>
+
+    <div class="settings-hint" style="margin-bottom:8px;">Monatsübersicht</div>
+    <div id="yearTable"></div>
   </div>
 </div>
 
