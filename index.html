@@ -80,7 +80,14 @@
   .cal-cell.muted{color:#C7CDD1;background:transparent;}
   .cal-cell.weekend:not(.has-entry):not(.muted){background:#EBECE9;}
   body.dark .cal-cell.weekend:not(.has-entry):not(.muted){background:#1A1F22;}
-  .cal-cell.today{box-shadow:inset 0 0 0 1.5px var(--primary);}
+  .cal-cell.today{box-shadow:inset 0 0 0 2px var(--primary);font-weight:800;}
+  .cal-cell.today:not(.has-entry){background:rgba(27,75,102,0.08);}
+  body.dark .cal-cell.today:not(.has-entry){background:rgba(62,143,176,0.15);}
+  .cal-cell.today::before{
+    content:'';position:absolute;bottom:3px;left:50%;transform:translateX(-50%);
+    width:4px;height:4px;border-radius:50%;background:var(--primary);
+  }
+  .cal-cell.today.has-entry::before{background:#fff;}
   .cal-cell.has-entry{color:#fff;font-weight:600;}
   .cal-cell .hrs{font-size:9px;font-weight:600;margin-top:1px;}
   .cal-cell.type-work{background:var(--primary);}
@@ -424,6 +431,17 @@
     <hr class="sep">
     <div class="toggle-row">
       <div>
+        <label style="margin:0;">Bürozeit-Anteil anzeigen</label>
+        <div class="settings-hint" style="margin-top:2px;">Zeigt den %-Anteil "Büroarbeiten" an den Gesamtstunden im Dashboard.</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="setShowOfficeShare">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <hr class="sep">
+    <div class="toggle-row">
+      <div>
         <label style="margin:0;">Dunkelmodus</label>
         <div class="settings-hint" style="margin-top:2px;">Angenehmer bei wenig Licht.</div>
       </div>
@@ -520,8 +538,17 @@
 
     <div id="yearDashboard" style="margin:0 0 16px;"></div>
 
+    <div class="settings-hint" style="margin-bottom:6px;">Im Vergleich zum Vorjahr</div>
+    <div id="yearComparison" style="margin:0 0 18px;"></div>
+
     <div class="settings-hint" style="margin-bottom:6px;">Stunden pro Monat</div>
     <div id="yearBarChart" style="margin:0 0 18px;"></div>
+
+    <div class="settings-hint" style="margin-bottom:6px;">Auslastung nach Wochentag (Ø Std)</div>
+    <div id="yearWeekdayChart" style="margin:0 0 18px;"></div>
+
+    <div class="settings-hint" style="margin-bottom:6px;">Überstunden-Saldo (Verlauf)</div>
+    <div id="yearAbbauChart" style="margin:0 0 18px;"></div>
 
     <div class="settings-hint" style="margin-bottom:6px;">Top 5 Kunden nach Stunden</div>
     <div id="yearTopKunden" style="margin:0 0 18px;"></div>

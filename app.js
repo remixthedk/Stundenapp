@@ -65,7 +65,8 @@ const DEFAULT_SETTINGS = {
   monThuStart:'07:00', monThuEnd:'16:15', monThuPause:60,
   friStart:'07:00', friEnd:'12:30', friPause:30,
   darkMode:false, lastBackupAt:null, urlaubstage:30,
-  pinEnabled:false, pinHash:null, emailRecipient:'stunden@john-haustechnik.net'
+  pinEnabled:false, pinHash:null, emailRecipient:'stunden@john-haustechnik.net',
+  showOfficeShare:false
 };
 
 function isStorageAvailable(){
@@ -175,9 +176,49 @@ function renderDashboard(monthDays){
   }
   cards.push(`<div class="dash-card"><div class="v">${fmtHours(abbau)}</div><div class="l">ABBAU</div></div>`);
 
+  const kundenCount = countDistinctKunden(monthDays);
+  cards.push(`<div class="dash-card"><div class="v">${kundenCount}</div><div class="l">KUNDEN</div></div>`);
+
+  if(settings.showOfficeShare){
+    const pct = officeSharePercent(monthDays);
+    if(pct !== null){
+      cards.push(`<div class="dash-card"><div class="v">${pct}%</div><div class="l">BÜROZEIT</div></div>`);
+    }
+  }
+
   const dash = document.getElementById('dashboard');
   dash.style.gridTemplateColumns = `repeat(${cards.length},1fr)`;
   dash.innerHTML = cards.join('');
+}
+
+function isBueroLabel(name){
+  const n = (name||'').trim().toLowerCase();
+  return n === '' || n === 'büroarbeiten';
+}
+
+function countDistinctKunden(dayList){
+  const names = new Set();
+  dayList.forEach(d => {
+    if(d.type !== 'work') return;
+    (d.items||[]).forEach(it => {
+      if(!isBueroLabel(it.kunde)) names.add(it.kunde.trim());
+    });
+  });
+  return names.size;
+}
+
+function officeSharePercent(dayList){
+  let total = 0, buero = 0;
+  dayList.forEach(d => {
+    if(d.type !== 'work') return;
+    (d.items||[]).forEach(it => {
+      const std = parseFloat(it.stunden)||0;
+      total += std;
+      if(isBueroLabel(it.kunde)) buero += std;
+    });
+  });
+  if(total === 0) return null;
+  return Math.round((buero/total)*100);
 }
 
 function renderTodayStatus(){
@@ -739,6 +780,7 @@ function openSettings(){
   document.getElementById('setFriStart').value = settings.friStart;
   document.getElementById('setFriEnd').value = settings.friEnd;
   document.getElementById('setFriPause').value = settings.friPause;
+  document.getElementById('setShowOfficeShare').checked = !!settings.showOfficeShare;
   document.getElementById('setDarkMode').checked = !!settings.darkMode;
   document.getElementById('setPinEnabled').checked = !!settings.pinEnabled;
   document.getElementById('setPinNew').value = '';
@@ -794,6 +836,7 @@ document.getElementById('saveSettings').addEventListener('click', () => {
     friStart: document.getElementById('setFriStart').value,
     friEnd: document.getElementById('setFriEnd').value,
     friPause: parseFloat(document.getElementById('setFriPause').value) || 0,
+    showOfficeShare: document.getElementById('setShowOfficeShare').checked,
     darkMode: document.getElementById('setDarkMode').checked,
     pinEnabled, pinHash,
   };
@@ -1083,6 +1126,7 @@ function renderAnalytics(){
   const urlaubRest = Math.max(urlaubGesamt - urlaubGenommen, 0);
   const krankTage = yearDays.filter(d=>d.type==='krankheit').length;
   const schuleTage = yearDays.filter(d=>d.type==='schule').length;
+  const kundenCount = countDistinctKunden(yearDays);
 
   document.getElementById('yearDashboard').innerHTML = `
     <div class="settings-hint" style="margin:0 0 6px;">Urlaubskonto</div>
@@ -1092,14 +1136,18 @@ function renderAnalytics(){
       <div class="dash-card"><div class="v">${urlaubRest}</div><div class="l">ÜBRIG</div></div>
     </div>
     <div class="settings-hint" style="margin:0 0 6px;">Sonstiges</div>
-    <div class="dashboard" style="grid-template-columns:repeat(3,1fr);margin:0;">
+    <div class="dashboard" style="grid-template-columns:repeat(4,1fr);margin:0;">
       <div class="dash-card"><div class="v">${fmtHours(totalStd)}</div><div class="l">STD GESAMT</div></div>
       <div class="dash-card"><div class="v">${krankTage}</div><div class="l">KRANK</div></div>
       <div class="dash-card"><div class="v">${schuleTage}</div><div class="l">SCHULE</div></div>
+      <div class="dash-card"><div class="v">${kundenCount}</div><div class="l">KUNDEN</div></div>
     </div>
   `;
 
+  renderYearComparison(yearDays, totalStd, urlaubGenommen, krankTage);
   renderMonthlyBarChart(yearDays);
+  renderWeekdayChart(yearDays);
+  renderAbbauSaldoChart(yearDays);
   renderTopKunden(yearDays);
 
   const table = document.getElementById('yearTable');
@@ -1123,6 +1171,112 @@ function renderAnalytics(){
   if(table.innerHTML === ''){
     table.innerHTML = `<div class="empty-state" style="padding:30px 10px;">Keine Einträge in ${analyticsYear}.</div>`;
   }
+}
+
+function renderYearComparison(yearDays, totalStd, urlaubGenommen, krankTage){
+  const prevYear = analyticsYear - 1;
+  const prevDays = days.filter(d => fromISODate(d.date).getFullYear() === prevYear);
+  const container = document.getElementById('yearComparison');
+
+  if(prevDays.length === 0){
+    container.innerHTML = `<div class="settings-hint">Keine Daten für ${prevYear} vorhanden.</div>`;
+    return;
+  }
+
+  const prevStd = prevDays.reduce((s,d)=> s + dayTotal(d), 0);
+  const prevUrlaub = prevDays.filter(d=>d.type==='urlaub').length;
+  const prevKrank = prevDays.filter(d=>d.type==='krankheit').length;
+
+  const row = (label, cur, prev, unit) => {
+    const diff = cur - prev;
+    const diffStr = diff === 0 ? '±0' : (diff > 0 ? `+${unit==='Std'?fmtHours(diff):diff}` : `${unit==='Std'?fmtHours(diff):diff}`);
+    const color = diff > 0 ? 'var(--primary)' : diff < 0 ? 'var(--danger)' : 'var(--muted)';
+    return `<div class="year-row">
+      <span class="ym">${label}</span>
+      <span class="yv">${unit==='Std'?fmtHours(cur):cur} ${unit}</span>
+      <span class="yv" style="color:${color};font-weight:700;">${diffStr}</span>
+    </div>`;
+  };
+
+  container.innerHTML =
+    row(`Std. gesamt (${prevYear}: ${fmtHours(prevStd)})`, totalStd, prevStd, 'Std') +
+    row(`Urlaubstage (${prevYear}: ${prevUrlaub})`, urlaubGenommen, prevUrlaub, 'Tage') +
+    row(`Krankheitstage (${prevYear}: ${prevKrank})`, krankTage, prevKrank, 'Tage');
+}
+
+function renderWeekdayChart(yearDays){
+  const labels = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+  const sums = [0,0,0,0,0,0,0];
+  const counts = [0,0,0,0,0,0,0];
+
+  yearDays.forEach(d => {
+    if(d.type !== 'work') return;
+    const dow = (fromISODate(d.date).getDay() + 6) % 7; // Mo=0
+    sums[dow] += dayTotal(d);
+    counts[dow]++;
+  });
+
+  const avgs = sums.map((s,i) => counts[i] > 0 ? s/counts[i] : 0);
+  const max = Math.max(...avgs, 1);
+
+  const W = 340, H = 110, padBottom = 16, padTop = 8, barGap = 6;
+  const barW = (W/7) - barGap;
+  const isDark = document.body.classList.contains('dark');
+  const barColor = isDark ? '#3E8FB0' : '#1B4B66';
+  const textColor = isDark ? '#8A9298' : '#5A6570';
+
+  let bars = '';
+  avgs.forEach((v,i) => {
+    const barH = max > 0 ? (v/max) * (H-padTop-padBottom) : 0;
+    const x = i * (W/7) + barGap/2;
+    const y = H - padBottom - barH;
+    bars += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="2" fill="${barColor}"/>`;
+    if(v > 0){
+      bars += `<text x="${x+barW/2}" y="${y-3}" font-size="7" text-anchor="middle" fill="${barColor}">${fmtHours(v)}</text>`;
+    }
+    bars += `<text x="${x+barW/2}" y="${H-4}" font-size="7.5" text-anchor="middle" fill="${textColor}">${labels[i]}</text>`;
+  });
+
+  document.getElementById('yearWeekdayChart').innerHTML =
+    `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">${bars}</svg>`;
+}
+
+function renderAbbauSaldoChart(yearDays){
+  const abbauDays = yearDays.filter(d => d.type === 'abbau').sort((a,b)=> a.date.localeCompare(b.date));
+  const container = document.getElementById('yearAbbauChart');
+
+  if(abbauDays.length === 0){
+    container.innerHTML = `<div class="settings-hint">Keine Überstundenabbau-Einträge in diesem Jahr.</div>`;
+    return;
+  }
+
+  let running = 0;
+  const points = abbauDays.map(d => { running += dayTotal(d); return running; });
+  const min = Math.min(0, ...points);
+  const max = Math.max(0, ...points);
+  const range = (max - min) || 1;
+
+  const W = 340, H = 90, padX = 6, padY = 10;
+  const stepX = points.length > 1 ? (W - padX*2) / (points.length-1) : 0;
+  const yFor = (v) => H - padY - ((v-min)/range) * (H - padY*2);
+
+  const isDark = document.body.classList.contains('dark');
+  const lineColor = isDark ? '#3E8FB0' : '#1B4B66';
+  const zeroY = yFor(0);
+
+  let path = `M ${padX} ${yFor(points[0])}`;
+  points.forEach((v,i) => { if(i>0) path += ` L ${padX + i*stepX} ${yFor(v)}`; });
+
+  const lastVal = points[points.length-1];
+  document.getElementById('yearAbbauChart').innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
+      <line x1="${padX}" y1="${zeroY}" x2="${W-padX}" y2="${zeroY}" stroke="#D2D6D8" stroke-width="0.5"/>
+      <path d="${path}" fill="none" stroke="${lineColor}" stroke-width="1.8"/>
+    </svg>
+    <div style="text-align:right;font-size:11px;color:var(--muted);margin-top:2px;">
+      Aktueller Saldo: <b style="color:var(--text);">${fmtHours(lastVal)} Std</b>
+    </div>
+  `;
 }
 
 function renderTopKunden(yearDays){
