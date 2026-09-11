@@ -1757,8 +1757,32 @@ function attachDownloadFeedback(linkEl, label){
 
 /* ===== Service worker ===== */
 if('serviceWorker' in navigator){
+  const hadControllerAtLoad = !!navigator.serviceWorker.controller;
+  let updateBannerShown = false;
+
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    // Nur anzeigen, wenn schon vorher eine Version aktiv war (= echtes Update, nicht Erstinstallation)
+    if(hadControllerAtLoad && !updateBannerShown){
+      updateBannerShown = true;
+      showUpdateBanner();
+    }
+  });
+}
+
+function showUpdateBanner(){
+  const el = document.createElement('div');
+  el.id = 'updateBanner';
+  el.innerHTML = `
+    <span>🔄 Neues Update ist da</span>
+    <button id="updateBannerBtn">Jetzt laden</button>
+  `;
+  document.body.appendChild(el);
+  document.getElementById('updateBannerBtn').addEventListener('click', () => {
+    window.location.reload();
   });
 }
 
@@ -2042,7 +2066,7 @@ document.querySelectorAll('.settings-group-head').forEach(btn => {
 });
 
 /* ===== Init ===== */
-const APP_VERSION = 'v37'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v38'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 applyDarkMode();
 const logoImg = new Image();

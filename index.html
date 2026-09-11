@@ -244,6 +244,17 @@
   .share-howto-step:last-child{margin-bottom:0;}
   .share-howto-step b{color:var(--primary);}
   .download-confirmed{background:var(--accent-klima) !important;transition:background 0.2s;}
+  #updateBanner{
+    position:fixed;top:0;left:0;right:0;z-index:500;
+    background:var(--primary);color:#fff;
+    padding:calc(10px + env(safe-area-inset-top,0px)) 16px 10px;
+    display:flex;justify-content:space-between;align-items:center;gap:10px;
+    font-size:13px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,0.15);
+  }
+  #updateBannerBtn{
+    background:#fff;color:var(--primary);border:none;border-radius:100px;
+    padding:7px 14px;font-weight:700;font-size:12.5px;flex-shrink:0;
+  }
   .share-history-row{
     display:flex;align-items:center;gap:10px;background:var(--surface);
     border:1px solid var(--border);border-radius:9px;padding:11px 12px;margin-bottom:8px;
