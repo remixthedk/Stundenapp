@@ -83,6 +83,11 @@
   .cal-cell.type-krankheit{background:var(--danger);}
   .cal-cell.type-schule{background:#4B5EAA;}
   .cal-cell.type-abbau{background:var(--accent-heiz);}
+  .cal-cell.holiday:not(.has-entry){box-shadow:inset 0 0 0 1.5px #C9622A;}
+  .cal-cell.holiday::after{
+    content:'';position:absolute;top:3px;right:3px;width:5px;height:5px;
+    border-radius:50%;background:#C9622A;
+  }
   .cal-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;padding:0 2px;font-size:11px;color:var(--muted);}
   .cal-legend .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle;}
   .cal-legend .dot.work{background:var(--primary);}
@@ -318,6 +323,7 @@
     <span><i class="dot krankheit"></i>Krankheit</span>
     <span><i class="dot schule"></i>Schule</span>
     <span><i class="dot abbau"></i>Abbau</span>
+    <span>🟠 Feiertag</span>
   </div>
 </div>
 
@@ -450,6 +456,9 @@
     </div>
 
     <div class="dashboard" id="yearDashboard" style="margin:0 0 16px;"></div>
+
+    <div class="settings-hint" style="margin-bottom:6px;">Stunden pro Monat</div>
+    <div id="yearBarChart" style="margin:0 0 18px;"></div>
 
     <div class="settings-hint" style="margin-bottom:8px;">Monatsübersicht</div>
     <div id="yearTable"></div>

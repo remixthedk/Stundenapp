@@ -19,6 +19,46 @@ function isoWeek(date){
 
 function uid(){ return Math.random().toString(36).slice(2,10); }
 
+/* ===== Feiertage Niedersachsen ===== */
+function easterSunday(year){
+  const a = year % 19, b = Math.floor(year/100), c = year % 100;
+  const d = Math.floor(b/4), e = b % 4, f = Math.floor((b+8)/25);
+  const g = Math.floor((b-f+1)/3), h = (19*a+b-d-g+15) % 30;
+  const i = Math.floor(c/4), k = c % 4;
+  const l = (32+2*e+2*i-h-k) % 7;
+  const m = Math.floor((a+11*h+22*l)/451);
+  const month = Math.floor((h+l-7*m+114)/31);
+  const day = ((h+l-7*m+114) % 31) + 1;
+  return new Date(year, month-1, day);
+}
+function addDays(d, n){ const r = new Date(d); r.setDate(r.getDate()+n); return r; }
+
+const holidayCache = {};
+function getHolidaysNiedersachsen(year){
+  if(holidayCache[year]) return holidayCache[year];
+  const easter = easterSunday(year);
+  const list = [
+    {date:new Date(year,0,1), name:'Neujahr'},
+    {date:addDays(easter,-2), name:'Karfreitag'},
+    {date:addDays(easter,1), name:'Ostermontag'},
+    {date:new Date(year,4,1), name:'Tag der Arbeit'},
+    {date:addDays(easter,39), name:'Christi Himmelfahrt'},
+    {date:addDays(easter,50), name:'Pfingstmontag'},
+    {date:new Date(year,9,3), name:'Tag der Deutschen Einheit'},
+    {date:new Date(year,9,31), name:'Reformationstag'},
+    {date:new Date(year,11,25), name:'1. Weihnachtsfeiertag'},
+    {date:new Date(year,11,26), name:'2. Weihnachtsfeiertag'},
+  ];
+  const map = {};
+  list.forEach(h => map[toISODate(h.date)] = h.name);
+  holidayCache[year] = map;
+  return map;
+}
+function isHoliday(dateObj){
+  const map = getHolidaysNiedersachsen(dateObj.getFullYear());
+  return map[toISODate(dateObj)] || null;
+}
+
 /* ===== Storage ===== */
 const DEFAULT_SETTINGS = {
   name:'', street:'', city:'',
@@ -127,7 +167,7 @@ function renderNotices(){
   const yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1);
   const yDow = yesterday.getDay();
   const yISO = toISODate(yesterday);
-  if(lastCheck !== todayISO && yDow >= 1 && yDow <= 5 && !days.find(d=>d.date===yISO)){
+  if(lastCheck !== todayISO && yDow >= 1 && yDow <= 5 && !isHoliday(yesterday) && !days.find(d=>d.date===yISO)){
     message = `Für ${fmtDate(yesterday)} (${WEEKDAYS[yDow]}) wurde noch nichts erfasst.`;
   }
 
@@ -199,12 +239,16 @@ function renderCalendar(monthDays){
     const cell = document.createElement('div');
     cell.className = 'cal-cell';
     if(iso === todayISO) cell.classList.add('today');
+    const holidayName = isHoliday(dateObj);
+    if(holidayName) cell.classList.add('holiday');
+
     if(entry){
       cell.classList.add('has-entry', 'type-'+entry.type);
       cell.innerHTML = `<span>${day}</span><span class="hrs">${fmtHours(dayTotal(entry))}</span>`;
     } else {
       cell.innerHTML = `<span>${day}</span>`;
     }
+    if(holidayName) cell.title = holidayName;
     cell.addEventListener('click', () => openDayModal(iso));
     grid.appendChild(cell);
   }
@@ -698,19 +742,28 @@ function renderAnalytics(){
   const yearDays = days.filter(d => fromISODate(d.date).getFullYear() === analyticsYear);
 
   const totalStd = yearDays.reduce((s,d)=> s + dayTotal(d), 0);
+  const urlaubGesamt = settings.urlaubstage || 0;
   const urlaubGenommen = yearDays.filter(d=>d.type==='urlaub').length;
-  const urlaubRest = Math.max((settings.urlaubstage||0) - urlaubGenommen, 0);
+  const urlaubRest = Math.max(urlaubGesamt - urlaubGenommen, 0);
   const krankTage = yearDays.filter(d=>d.type==='krankheit').length;
   const schuleTage = yearDays.filter(d=>d.type==='schule').length;
-  const abbauSaldo = yearDays.filter(d=>d.type==='abbau').reduce((s,d)=> s + dayTotal(d), 0);
 
   document.getElementById('yearDashboard').innerHTML = `
-    <div class="dash-card"><div class="v">${fmtHours(totalStd)}</div><div class="l">STD GESAMT</div></div>
-    <div class="dash-card"><div class="v">${urlaubRest}</div><div class="l">URLAUB REST</div></div>
-    <div class="dash-card"><div class="v">${urlaubGenommen}</div><div class="l">URLAUB WEG</div></div>
-    <div class="dash-card"><div class="v">${krankTage}</div><div class="l">KRANK</div></div>
-    <div class="dash-card"><div class="v">${schuleTage}</div><div class="l">SCHULE</div></div>
+    <div class="settings-hint" style="margin:0 0 6px;">Urlaubskonto</div>
+    <div class="dashboard" style="grid-template-columns:repeat(3,1fr);margin:0 0 14px;">
+      <div class="dash-card"><div class="v">${urlaubGesamt}</div><div class="l">TAGE GESAMT</div></div>
+      <div class="dash-card"><div class="v">${urlaubGenommen}</div><div class="l">GENOMMEN</div></div>
+      <div class="dash-card"><div class="v">${urlaubRest}</div><div class="l">ÜBRIG</div></div>
+    </div>
+    <div class="settings-hint" style="margin:0 0 6px;">Sonstiges</div>
+    <div class="dashboard" style="grid-template-columns:repeat(3,1fr);margin:0;">
+      <div class="dash-card"><div class="v">${fmtHours(totalStd)}</div><div class="l">STD GESAMT</div></div>
+      <div class="dash-card"><div class="v">${krankTage}</div><div class="l">KRANK</div></div>
+      <div class="dash-card"><div class="v">${schuleTage}</div><div class="l">SCHULE</div></div>
+    </div>
   `;
+
+  renderMonthlyBarChart(yearDays);
 
   const table = document.getElementById('yearTable');
   table.innerHTML = '';
@@ -733,6 +786,37 @@ function renderAnalytics(){
   if(table.innerHTML === ''){
     table.innerHTML = `<div class="empty-state" style="padding:30px 10px;">Keine Einträge in ${analyticsYear}.</div>`;
   }
+}
+
+function renderMonthlyBarChart(yearDays){
+  const monthShort = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  const values = [];
+  for(let m=0; m<12; m++){
+    const mDays = yearDays.filter(d => fromISODate(d.date).getMonth() === m);
+    values.push(mDays.reduce((s,d)=> s + dayTotal(d), 0));
+  }
+  const max = Math.max(...values, 1);
+
+  const W = 340, H = 130, padBottom = 16, padTop = 8, barGap = 4;
+  const barW = (W / 12) - barGap;
+  const isDark = document.body.classList.contains('dark');
+  const barColor = isDark ? '#3E8FB0' : '#1B4B66';
+  const textColor = isDark ? '#8A9298' : '#5A6570';
+
+  let bars = '';
+  values.forEach((v, i) => {
+    const barH = max > 0 ? (v / max) * (H - padTop - padBottom) : 0;
+    const x = i * (W/12) + barGap/2;
+    const y = H - padBottom - barH;
+    bars += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="2" fill="${barColor}"/>`;
+    if(v > 0){
+      bars += `<text x="${x+barW/2}" y="${y-3}" font-size="7" text-anchor="middle" fill="${barColor}">${fmtHours(v)}</text>`;
+    }
+    bars += `<text x="${x+barW/2}" y="${H-4}" font-size="7.5" text-anchor="middle" fill="${textColor}">${monthShort[i]}</text>`;
+  });
+
+  const container = document.getElementById('yearBarChart');
+  container.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">${bars}</svg>`;
 }
 
 /* ===== Month nav ===== */
