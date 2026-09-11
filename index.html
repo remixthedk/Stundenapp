@@ -130,6 +130,15 @@
   }
   .item-line .k{color:var(--text);}
   .item-line .k b{font-weight:600;}
+  .item-notiz{
+    font-size:11.5px;color:var(--muted);padding:0 0 6px;font-style:italic;
+    display:flex;align-items:center;gap:5px;flex-wrap:wrap;
+  }
+  .notiz-tag{
+    font-style:normal;font-size:9px;font-weight:700;color:var(--accent-heiz);
+    background:#F7EEE3;padding:1px 5px;border-radius:100px;
+  }
+  body.dark .notiz-tag{background:#3A2E1E;}
   .empty-state{
     text-align:center;color:var(--muted);
     padding:60px 30px;font-size:14px;line-height:1.6;
@@ -176,10 +185,10 @@
   .row-2 > div{flex:1;}
   .row-3{display:flex;gap:10px;}
   .row-3 > div{flex:1;}
-  .type-tabs{display:flex;gap:6px;flex-wrap:wrap;}
+  .type-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
   .type-tab{
-    flex:1;min-width:76px;text-align:center;padding:9px 6px;
-    border:1px solid var(--border);border-radius:9px;font-size:12.5px;font-weight:600;
+    text-align:center;padding:9px 4px;
+    border:1px solid var(--border);border-radius:9px;font-size:12px;font-weight:600;
     color:var(--muted);background:var(--surface);
   }
   .type-tab.active{background:var(--primary);color:#fff;border-color:var(--primary);}
@@ -191,6 +200,7 @@
     position:absolute;top:8px;right:8px;background:none;border:none;
     color:var(--muted);font-size:16px;width:26px;height:26px;
   }
+  .typo-hint{font-size:11.5px;color:var(--accent-heiz);margin-top:4px;line-height:1.4;}
   .add-item-btn{
     width:100%;margin-top:10px;padding:11px;border:1.5px dashed var(--border);
     border-radius:9px;background:none;color:var(--primary);font-weight:600;font-size:13.5px;
@@ -242,6 +252,10 @@
   }
   .dash-card .v{font-size:14px;font-weight:700;color:var(--primary);}
   .dash-card .l{font-size:8.5px;color:var(--muted);margin-top:2px;font-weight:600;}
+  .today-status{
+    margin:10px 16px 0;background:var(--surface);border:1px solid var(--border);
+    border-radius:9px;padding:10px 12px;
+  }
 
   /* Notice banner */
   .notice-banner{
@@ -261,7 +275,11 @@
   .switch input:checked + .slider:before{transform:translateX(18px);}
 
   /* Lock button */
-  #lockMonth{background:none;border:none;font-size:16px;width:32px;height:32px;color:var(--primary);}
+  #lockMonth{
+    background:none;border:1px solid var(--border);border-radius:8px;
+    font-size:12px;font-weight:600;color:var(--primary);
+    height:32px;padding:0 10px;display:flex;align-items:center;gap:5px;
+  }
 
   /* Dark mode */
   body.dark{
@@ -286,10 +304,19 @@
 </head>
 <body>
 
+<div id="lockScreen" style="display:none;position:fixed;inset:0;z-index:300;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;padding:24px;">
+  <div style="font-size:44px;margin-bottom:10px;">🔒</div>
+  <div style="font-weight:600;font-size:16px;margin-bottom:18px;color:var(--text);">App gesperrt</div>
+  <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="lockPinInput"
+    style="width:150px;text-align:center;font-size:26px;letter-spacing:10px;padding:12px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text);">
+  <div id="lockPinError" style="color:var(--danger);font-size:12.5px;margin-top:10px;display:none;">Falscher PIN, nochmal versuchen</div>
+</div>
+
+
 <header class="topbar">
   <div>
-    <h1>Stundenzettel</h1>
-    <div class="sub" id="employeeSubline">John Haustechnik</div>
+    <h1>John Haustechnik</h1>
+    <div class="sub" id="employeeSubline">Stundenzettel</div>
   </div>
   <div style="display:flex;gap:8px;">
     <button class="icon-btn" id="btnAnalytics" aria-label="Jahresübersicht">📊</button>
@@ -302,7 +329,7 @@
   <button id="prevMonth">‹</button>
   <div class="label" id="monthLabel">September 2026</div>
   <div style="display:flex;align-items:center;gap:4px;">
-    <button id="lockMonth" title="Monat abschließen">🔓</button>
+    <button id="lockMonth" title="Monat abschließen">🔓 Offen</button>
     <button id="nextMonth">›</button>
   </div>
 </div>
@@ -310,6 +337,7 @@
 <div id="noticeBanner" class="notice-banner" style="display:none;"></div>
 
 <div class="dashboard" id="dashboard"></div>
+<div class="today-status" id="todayStatus" style="display:none;"></div>
 
 
 <div class="calendar-wrap">
@@ -341,9 +369,6 @@
     </div>
 
     <div class="modal-actions">
-      <button class="btn primary" id="btnAddDay" style="flex:1">+ Tag erfassen</button>
-    </div>
-    <div class="modal-actions">
       <button class="btn secondary" id="btnExportCsv" style="flex:1">CSV exportieren</button>
       <button class="btn secondary" id="btnExport" style="flex:1">PDF exportieren</button>
     </div>
@@ -373,6 +398,24 @@
     </div>
     <div class="modal-actions">
       <button class="btn primary" id="saveSettings" style="flex:1">Speichern</button>
+    </div>
+    <hr class="sep">
+    <div class="toggle-row">
+      <div>
+        <label style="margin:0;">App-Sperre (PIN)</label>
+        <div class="settings-hint" style="margin-top:2px;">Fragt beim Öffnen einen 4-stelligen Code ab.</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="setPinEnabled">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div id="pinSetupFields" style="display:none;margin-top:10px;">
+      <label>Neuer PIN (4 Ziffern)</label>
+      <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="setPinNew" placeholder="••••">
+      <label>PIN bestätigen</label>
+      <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="setPinConfirm" placeholder="••••">
+      <div class="settings-hint" id="pinExistingHint" style="display:none;">Bereits eingerichtet – leer lassen, um den PIN nicht zu ändern.</div>
     </div>
     <hr class="sep">
     <div class="toggle-row">
@@ -412,7 +455,7 @@
       <div class="type-tab" data-type="urlaub">Urlaub</div>
       <div class="type-tab" data-type="krankheit">Krankheit</div>
       <div class="type-tab" data-type="schule">Schule</div>
-      <div class="type-tab" data-type="abbau">Überstundenabbau</div>
+      <div class="type-tab" data-type="abbau">Abbau</div>
     </div>
 
     <div id="workFields">
@@ -464,6 +507,9 @@
     <div class="settings-hint" style="margin-bottom:6px;">Stunden pro Monat</div>
     <div id="yearBarChart" style="margin:0 0 18px;"></div>
 
+    <div class="settings-hint" style="margin-bottom:6px;">Top 5 Kunden nach Stunden</div>
+    <div id="yearTopKunden" style="margin:0 0 18px;"></div>
+
     <div class="settings-hint" style="margin-bottom:8px;">Monatsübersicht</div>
     <div id="yearTable"></div>
   </div>
@@ -478,7 +524,8 @@
     </div>
     <input type="text" id="searchInput" placeholder="Kunde, Tätigkeit oder Sachbegriff..." autocomplete="off">
 
-    <div class="type-tabs" id="searchTypeFilter" style="margin-top:10px;">
+    <label style="margin-top:14px;">Art</label>
+    <div class="type-tabs" id="searchTypeFilter">
       <div class="type-tab active" data-type="">Alle</div>
       <div class="type-tab" data-type="work">Arbeit</div>
       <div class="type-tab" data-type="urlaub">Urlaub</div>
@@ -487,13 +534,19 @@
       <div class="type-tab" data-type="abbau">Abbau</div>
     </div>
 
-    <div class="row-3" style="margin-top:10px;align-items:center;">
+    <label>Zeitraum (optional)</label>
+    <div class="row-2">
       <div><input type="date" id="searchDateFrom"></div>
       <div><input type="date" id="searchDateTo"></div>
-      <button type="button" id="searchMatchMode" class="btn secondary" style="flex:0 0 auto;padding:11px 12px;">UND</button>
     </div>
 
-    <div id="searchResults" style="margin-top:14px;"></div>
+    <label>Bei mehreren Suchwörtern</label>
+    <div class="row-2" style="align-items:center;">
+      <button type="button" id="searchMatchMode" class="btn secondary" style="flex:1;">Alle Wörter müssen vorkommen</button>
+    </div>
+    <div class="settings-hint" id="searchMatchModeHint" style="margin-top:4px;">Beispiel „Meise Wärmepumpe": findet nur Einträge, die beide Wörter enthalten.</div>
+
+    <div id="searchResults" style="margin-top:16px;"></div>
   </div>
 </div>
 

@@ -64,7 +64,8 @@ const DEFAULT_SETTINGS = {
   name:'', street:'', city:'',
   monThuStart:'07:00', monThuEnd:'16:15', monThuPause:60,
   friStart:'07:00', friEnd:'12:30', friPause:30,
-  darkMode:false, lastBackupAt:null, urlaubstage:30
+  darkMode:false, lastBackupAt:null, urlaubstage:30,
+  pinEnabled:false, pinHash:null
 };
 
 function loadSettings(){
@@ -118,12 +119,54 @@ function renderDashboard(monthDays){
   const schuleTage = monthDays.filter(d=>d.type==='schule').length;
   const abbau = monthDays.filter(d=>d.type==='abbau').reduce((s,d)=> s + dayTotal(d), 0);
 
-  document.getElementById('dashboard').innerHTML = `
-    <div class="dash-card"><div class="v">${fmtHours(total)}</div><div class="l">STD GESAMT</div></div>
-    <div class="dash-card"><div class="v">${urlaubTage}</div><div class="l">URLAUB</div></div>
-    <div class="dash-card"><div class="v">${krankTage}</div><div class="l">KRANK</div></div>
-    <div class="dash-card"><div class="v">${schuleTage}</div><div class="l">SCHULE</div></div>
-    <div class="dash-card"><div class="v">${fmtHours(abbau)}</div><div class="l">ABBAU</div></div>
+  const cards = [
+    `<div class="dash-card"><div class="v">${fmtHours(total)}</div><div class="l">STD GESAMT</div></div>`,
+    `<div class="dash-card"><div class="v">${urlaubTage}</div><div class="l">URLAUB</div></div>`,
+    `<div class="dash-card"><div class="v">${krankTage}</div><div class="l">KRANK</div></div>`,
+  ];
+  if(schuleTage > 0){
+    cards.push(`<div class="dash-card"><div class="v">${schuleTage}</div><div class="l">SCHULE</div></div>`);
+  }
+  cards.push(`<div class="dash-card"><div class="v">${fmtHours(abbau)}</div><div class="l">ABBAU</div></div>`);
+
+  const dash = document.getElementById('dashboard');
+  dash.style.gridTemplateColumns = `repeat(${cards.length},1fr)`;
+  dash.innerHTML = cards.join('');
+}
+
+function renderTodayStatus(){
+  const el = document.getElementById('todayStatus');
+  const today = new Date();
+
+  if(viewDate.getFullYear() !== today.getFullYear() || viewDate.getMonth() !== today.getMonth()){
+    el.style.display = 'none';
+    return;
+  }
+  const dow = today.getDay();
+  if(dow === 0 || dow === 6 || isHoliday(today)){
+    el.style.display = 'none';
+    return;
+  }
+
+  const iso = toISODate(today);
+  const entry = days.find(d => d.date === iso);
+  const dft = defaultTimesFor(today);
+  const [sh,sm] = (dft.start||'0:0').split(':').map(Number);
+  const [eh,em] = (dft.end||'0:0').split(':').map(Number);
+  const soll = ((eh*60+em) - (sh*60+sm) - (dft.pause||0)) / 60;
+  if(soll <= 0){ el.style.display = 'none'; return; }
+
+  const ist = entry ? dayTotal(entry) : 0;
+  const pct = Math.max(0, Math.min(100, Math.round((ist/soll)*100)));
+
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px;">
+      <span>Heute erfasst</span><span><b style="color:var(--text)">${fmtHours(ist)}</b> von ${fmtHours(soll)} Std</span>
+    </div>
+    <div style="background:var(--bg);border-radius:100px;height:6px;overflow:hidden;">
+      <div style="width:${pct}%;height:100%;background:var(--primary);border-radius:100px;"></div>
+    </div>
   `;
 }
 
@@ -133,9 +176,8 @@ function isMonthLocked(d){ return lockedMonths.includes(monthKey(d)); }
 function renderLockState(){
   const locked = isMonthLocked(viewDate);
   const btn = document.getElementById('lockMonth');
-  btn.textContent = locked ? '🔒' : '🔓';
-  btn.title = locked ? 'Monat entsperren' : 'Monat abschließen';
-  document.getElementById('btnAddDay').style.opacity = locked ? '0.5' : '1';
+  btn.textContent = locked ? '🔒 Gesperrt' : '🔓 Offen';
+  btn.title = locked ? 'Monat ist gesperrt – zum Bearbeiten hier entsperren' : 'Monat abschließen (sperrt Bearbeitung)';
 }
 
 document.getElementById('lockMonth').addEventListener('click', () => {
@@ -267,7 +309,7 @@ function renderCalendar(monthDays){
 /* ===== Rendering: month list ===== */
 function render(){
   document.getElementById('monthLabel').textContent = `${MONTHS[viewDate.getMonth()]} ${viewDate.getFullYear()}`;
-  document.getElementById('employeeSubline').textContent = settings.name ? settings.name : 'John Haustechnik';
+  document.getElementById('employeeSubline').textContent = settings.name || 'Stundenzettel';
 
   const y = viewDate.getFullYear(), m = viewDate.getMonth();
   const monthDays = days
@@ -276,6 +318,7 @@ function render(){
 
   renderCalendar(monthDays);
   renderDashboard(monthDays);
+  renderTodayStatus();
   renderLockState();
   renderNotices();
 
@@ -317,7 +360,8 @@ function render(){
           <div class="item-line">
             <span class="k"><b>${escapeHtml(it.kunde || 'Büroarbeiten')}</b>${it.taetigkeit ? ' · ' + escapeHtml(it.taetigkeit) : ''}</span>
             <span>${fmtHours(parseFloat(it.stunden)||0)}</span>
-          </div>`).join('');
+          </div>
+          ${it.notiz ? `<div class="item-notiz">📝 ${escapeHtml(it.notiz)} <span class="notiz-tag">nur intern</span></div>` : ''}`).join('');
       } else {
         const labels = {urlaub:'Urlaub', krankheit:'Krankheit', schule:'Schule', abbau:'Überstundenabbau'};
         const label = labels[d.type] || d.type;
@@ -449,17 +493,60 @@ function addItemRow(existing){
     <button type="button" class="remove-item">✕</button>
     <label style="margin-top:0;">Kunde</label>
     <input type="text" class="it-kunde" list="kundenListe" placeholder="z.B. Familie Meyer, Büroarbeiten..." value="${existing? escapeHtml(existing.kunde||'') : ''}">
+    <div class="typo-hint" style="display:none;"></div>
     <label>Tätigkeit</label>
     <input type="text" class="it-taetigkeit" placeholder="Ausgeführte Arbeit" value="${existing? escapeHtml(existing.taetigkeit||'') : ''}">
     <label>Stunden</label>
     <input type="number" class="it-stunden" step="0.25" value="${existing? existing.stunden : ''}">
+    <label>📝 Notiz <span style="font-weight:400;color:var(--muted);">– nur in der App sichtbar, nicht im PDF</span></label>
+    <input type="text" class="it-notiz" placeholder="z.B. Ersatzteil nachbestellen..." value="${existing? escapeHtml(existing.notiz||'') : ''}">
   `;
   wrap.querySelector('.remove-item').addEventListener('click', () => {
     wrap.remove();
     updateDayTotalDisplay();
   });
   wrap.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateDayTotalDisplay));
+  wrap.querySelector('.it-kunde').addEventListener('blur', (e) => checkTypo(e.target, wrap.querySelector('.typo-hint')));
   document.getElementById('itemsContainer').appendChild(wrap);
+}
+
+/* ===== Tippfehler-Check ===== */
+function levenshtein(a, b){
+  const m = a.length, n = b.length;
+  if(m === 0) return n;
+  if(n === 0) return m;
+  const dp = Array.from({length: m+1}, () => new Array(n+1).fill(0));
+  for(let i=0;i<=m;i++) dp[i][0] = i;
+  for(let j=0;j<=n;j++) dp[0][j] = j;
+  for(let i=1;i<=m;i++){
+    for(let j=1;j<=n;j++){
+      const cost = a[i-1]===b[j-1] ? 0 : 1;
+      dp[i][j] = Math.min(dp[i-1][j]+1, dp[i][j-1]+1, dp[i-1][j-1]+cost);
+    }
+  }
+  return dp[m][n];
+}
+
+function checkTypo(inputEl, hintEl){
+  const val = inputEl.value.trim();
+  hintEl.style.display = 'none';
+  if(val.length < 4) return;
+
+  const known = new Set();
+  days.forEach(d => (d.items||[]).forEach(it => { if(it.kunde) known.add(it.kunde); }));
+
+  const valLower = val.toLowerCase();
+  let closest = null, closestDist = Infinity;
+  known.forEach(name => {
+    if(name.toLowerCase() === valLower) return; // exact match, no hint needed
+    const dist = levenshtein(valLower, name.toLowerCase());
+    if(dist < closestDist){ closestDist = dist; closest = name; }
+  });
+
+  if(closest && closestDist >= 1 && closestDist <= 2){
+    hintEl.textContent = `Meintest du „${closest}"? (ähnlicher Name bereits vorhanden)`;
+    hintEl.style.display = 'block';
+  }
 }
 
 document.getElementById('addItemBtn').addEventListener('click', () => addItemRow());
@@ -486,7 +573,8 @@ function collectItems(){
     id: card.dataset.id,
     kunde: card.querySelector('.it-kunde').value.trim(),
     taetigkeit: card.querySelector('.it-taetigkeit').value.trim(),
-    stunden: parseFloat(card.querySelector('.it-stunden').value) || 0
+    stunden: parseFloat(card.querySelector('.it-stunden').value) || 0,
+    notiz: card.querySelector('.it-notiz').value.trim()
   }));
 }
 
@@ -540,12 +628,14 @@ document.getElementById('deleteDay').addEventListener('click', () => {
 function closeDayModal(){ dayModal.classList.remove('open'); }
 document.getElementById('closeDayModal').addEventListener('click', closeDayModal);
 dayModal.addEventListener('click', (e) => { if(e.target === dayModal) closeDayModal(); });
-document.getElementById('btnAddDay').addEventListener('click', () => {
-  settingsModal.classList.remove('open');
-  openDayModal(null);
-});
 
 /* ===== Settings Modal ===== */
+function simpleHash(str){
+  let h = 0;
+  for(let i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i)) >>> 0; }
+  return h.toString(36);
+}
+
 function openSettings(){
   document.getElementById('setName').value = settings.name;
   document.getElementById('setStreet').value = settings.street;
@@ -558,6 +648,11 @@ function openSettings(){
   document.getElementById('setFriEnd').value = settings.friEnd;
   document.getElementById('setFriPause').value = settings.friPause;
   document.getElementById('setDarkMode').checked = !!settings.darkMode;
+  document.getElementById('setPinEnabled').checked = !!settings.pinEnabled;
+  document.getElementById('setPinNew').value = '';
+  document.getElementById('setPinConfirm').value = '';
+  document.getElementById('pinSetupFields').style.display = settings.pinEnabled ? 'block' : 'none';
+  document.getElementById('pinExistingHint').style.display = (settings.pinEnabled && settings.pinHash) ? 'block' : 'none';
   document.getElementById('lastBackupInfo').textContent = settings.lastBackupAt
     ? `Letzte Sicherung: ${new Date(settings.lastBackupAt).toLocaleString('de-DE')}`
     : 'Noch keine Sicherung erstellt.';
@@ -567,11 +662,33 @@ document.getElementById('btnSettings').addEventListener('click', openSettings);
 document.getElementById('closeSettings').addEventListener('click', () => settingsModal.classList.remove('open'));
 settingsModal.addEventListener('click', (e) => { if(e.target === settingsModal) settingsModal.classList.remove('open'); });
 
+document.getElementById('setPinEnabled').addEventListener('change', (e) => {
+  document.getElementById('pinSetupFields').style.display = e.target.checked ? 'block' : 'none';
+});
+
 function applyDarkMode(){
   document.body.classList.toggle('dark', !!settings.darkMode);
 }
 
 document.getElementById('saveSettings').addEventListener('click', () => {
+  const pinEnabled = document.getElementById('setPinEnabled').checked;
+  const pinNew = document.getElementById('setPinNew').value.trim();
+  const pinConfirm = document.getElementById('setPinConfirm').value.trim();
+
+  let pinHash = settings.pinHash;
+  if(pinEnabled){
+    if(pinNew || pinConfirm){
+      if(!/^\d{4}$/.test(pinNew)){ toast('PIN muss genau 4 Ziffern haben'); return; }
+      if(pinNew !== pinConfirm){ toast('PINs stimmen nicht überein'); return; }
+      pinHash = simpleHash(pinNew);
+    } else if(!pinHash){
+      toast('Bitte einen PIN festlegen');
+      return;
+    }
+  } else {
+    pinHash = null;
+  }
+
   settings = {
     ...settings,
     name: document.getElementById('setName').value.trim(),
@@ -585,6 +702,7 @@ document.getElementById('saveSettings').addEventListener('click', () => {
     friEnd: document.getElementById('setFriEnd').value,
     friPause: parseFloat(document.getElementById('setFriPause').value) || 0,
     darkMode: document.getElementById('setDarkMode').checked,
+    pinEnabled, pinHash,
   };
   saveSettings(settings);
   applyDarkMode();
@@ -605,7 +723,7 @@ document.getElementById('btnSearch').addEventListener('click', () => {
   document.getElementById('searchResults').innerHTML = '';
   searchTypeFilter = '';
   searchMatchAll = true;
-  document.getElementById('searchMatchMode').textContent = 'UND';
+  updateMatchModeUI();
   document.querySelectorAll('#searchTypeFilter .type-tab').forEach(t => t.classList.toggle('active', t.dataset.type===''));
   searchModal.classList.add('open');
   setTimeout(()=> document.getElementById('searchInput').focus(), 150);
@@ -626,9 +744,21 @@ document.getElementById('searchTypeFilter').addEventListener('click', (e) => {
   runSearch();
 });
 
+function updateMatchModeUI(){
+  const btn = document.getElementById('searchMatchMode');
+  const hint = document.getElementById('searchMatchModeHint');
+  if(searchMatchAll){
+    btn.textContent = 'Alle Wörter müssen vorkommen';
+    hint.textContent = 'Beispiel „Meise Wärmepumpe": findet nur Einträge, die beide Wörter enthalten.';
+  } else {
+    btn.textContent = 'Mind. ein Wort reicht';
+    hint.textContent = 'Beispiel „Meise Wärmepumpe": findet Einträge mit mindestens einem der beiden Wörter.';
+  }
+}
+
 document.getElementById('searchMatchMode').addEventListener('click', () => {
   searchMatchAll = !searchMatchAll;
-  document.getElementById('searchMatchMode').textContent = searchMatchAll ? 'UND' : 'ODER';
+  updateMatchModeUI();
   runSearch();
 });
 
@@ -824,6 +954,7 @@ function renderAnalytics(){
   `;
 
   renderMonthlyBarChart(yearDays);
+  renderTopKunden(yearDays);
 
   const table = document.getElementById('yearTable');
   table.innerHTML = '';
@@ -846,6 +977,39 @@ function renderAnalytics(){
   if(table.innerHTML === ''){
     table.innerHTML = `<div class="empty-state" style="padding:30px 10px;">Keine Einträge in ${analyticsYear}.</div>`;
   }
+}
+
+function renderTopKunden(yearDays){
+  const totals = {};
+  yearDays.forEach(d => {
+    if(d.type !== 'work') return;
+    (d.items||[]).forEach(it => {
+      const name = (it.kunde||'').trim() || 'Büroarbeiten';
+      totals[name] = (totals[name]||0) + (parseFloat(it.stunden)||0);
+    });
+  });
+
+  const sorted = Object.entries(totals).sort((a,b)=> b[1]-a[1]).slice(0,5);
+  const container = document.getElementById('yearTopKunden');
+
+  if(sorted.length === 0){
+    container.innerHTML = `<div class="settings-hint">Noch keine Einträge.</div>`;
+    return;
+  }
+
+  const max = sorted[0][1];
+  container.innerHTML = sorted.map(([name, std]) => {
+    const pct = max > 0 ? Math.round((std/max)*100) : 0;
+    return `
+      <div style="margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px;">
+          <span>${escapeHtml(name)}</span><span style="color:var(--muted);">${fmtHours(std)} Std</span>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:100px;height:8px;overflow:hidden;">
+          <div style="width:${pct}%;height:100%;background:var(--primary);border-radius:100px;"></div>
+        </div>
+      </div>`;
+  }).join('');
 }
 
 function renderMonthlyBarChart(yearDays){
@@ -957,9 +1121,35 @@ if('serviceWorker' in navigator){
   });
 }
 
+/* ===== App-Sperre (PIN) ===== */
+function checkAppLock(){
+  if(!settings.pinEnabled || !settings.pinHash) return;
+  if(sessionStorage.getItem('sz_unlocked') === '1') return;
+
+  const lockScreen = document.getElementById('lockScreen');
+  const pinInput = document.getElementById('lockPinInput');
+  const errorEl = document.getElementById('lockPinError');
+  lockScreen.style.display = 'flex';
+  setTimeout(() => pinInput.focus(), 200);
+
+  pinInput.addEventListener('input', () => {
+    errorEl.style.display = 'none';
+    if(pinInput.value.length === 4){
+      if(simpleHash(pinInput.value) === settings.pinHash){
+        sessionStorage.setItem('sz_unlocked', '1');
+        lockScreen.style.display = 'none';
+      } else {
+        errorEl.style.display = 'block';
+        pinInput.value = '';
+      }
+    }
+  });
+}
+
 /* ===== Init ===== */
 applyDarkMode();
 const logoImg = new Image();
 logoImg.src = 'logo.png';
 
 render();
+checkAppLock();

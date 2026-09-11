@@ -152,6 +152,7 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
 
     doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(90,101,112);
     doc.text(`Zeitraum: ${pdfFmtDate(firstDate)} – ${pdfFmtDate(lastDate)}`, M, M+18.5);
+    doc.setFont('helvetica','bold'); doc.setTextColor(27,75,102);
     doc.text(`Seite ${pageNum} von ${totalPages}`, M+contentW, M+18.5, {align:'right'});
     doc.setLineWidth(0.2);
 
@@ -255,6 +256,9 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
     doc.setFont('helvetica','normal'); doc.setFontSize(6.8); doc.setTextColor(140,146,150);
     doc.text('Ausführender', M+3, fy+14);
     doc.text('Betrieb / Firma', M+contentW-boxW+3, fy+14);
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(140,146,150);
+    doc.text(`Seite ${pageNum}/${totalPages}`, M+contentW/2, fy+17.5, {align:'center'});
   });
 
   const fname = `Stundenzettel_${(settings.name||'').replace(/\s+/g,'-')}_${MONTHS[viewDate.getMonth()]}-${viewDate.getFullYear()}.pdf`;
