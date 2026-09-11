@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1B4B66">
+<title>Stundenzettel · John Haustechnik</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="preload" href="logo.png" as="image">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#F6F7F5;
+    --surface:#FFFFFF;
+    --primary:#1B4B66;
+    --primary-dark:#123344;
+    --accent-heiz:#C9622A;
+    --accent-klima:#2A9D8F;
+    --text:#1A1A1A;
+    --muted:#5A6570;
+    --border:#DFE3E6;
+    --danger:#B3432B;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    font-variant-numeric:tabular-nums;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:88px;
+  }
+  header.topbar{
+    position:sticky;top:0;z-index:20;
+    background:var(--primary);
+    color:#fff;
+    padding:14px 16px calc(14px + env(safe-area-inset-top,0px));
+    padding-top:calc(14px + env(safe-area-inset-top,0px));
+    display:flex;align-items:center;justify-content:space-between;
+    box-shadow:0 1px 0 rgba(0,0,0,0.08);
+  }
+  header.topbar h1{
+    font-size:17px;font-weight:600;margin:0;letter-spacing:0.1px;
+  }
+  header.topbar .sub{font-size:12px;color:#BFD3DD;margin-top:2px;font-weight:400;}
+  .icon-btn{
+    background:rgba(255,255,255,0.14);border:none;color:#fff;
+    width:38px;height:38px;border-radius:9px;font-size:18px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .month-nav{
+    display:flex;align-items:center;justify-content:space-between;
+    background:var(--surface);
+    margin:14px 16px 6px;
+    border-radius:var(--radius);
+    border:1px solid var(--border);
+    padding:6px 8px;
+  }
+  .month-nav button{
+    background:none;border:none;color:var(--primary);font-size:20px;
+    width:38px;height:38px;border-radius:8px;
+  }
+  .month-nav button:active{background:var(--bg);}
+  .month-nav .label{font-weight:600;font-size:15px;}
+  .calendar-wrap{margin:16px 16px 0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 8px;}
+  .cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:11px;color:var(--muted);font-weight:600;margin-bottom:4px;}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+  .cal-cell{
+    aspect-ratio:1/1;border-radius:7px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;font-size:12px;position:relative;
+    background:var(--bg);color:var(--text);
+  }
+  .cal-cell.muted{color:#C7CDD1;background:transparent;}
+  .cal-cell.today{box-shadow:inset 0 0 0 1.5px var(--primary);}
+  .cal-cell.has-entry{color:#fff;font-weight:600;}
+  .cal-cell .hrs{font-size:9px;font-weight:600;margin-top:1px;}
+  .cal-cell.type-work{background:var(--primary);}
+  .cal-cell.type-urlaub{background:#7C9AAE;}
+  .cal-cell.type-krankheit{background:var(--danger);}
+  .cal-cell.type-abbau{background:var(--accent-heiz);}
+  .cal-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;padding:0 2px;font-size:11px;color:var(--muted);}
+  .cal-legend .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle;}
+  .cal-legend .dot.work{background:var(--primary);}
+  .cal-legend .dot.urlaub{background:#7C9AAE;}
+  .cal-legend .dot.krankheit{background:var(--danger);}
+  .cal-legend .dot.abbau{background:var(--accent-heiz);}
+  .list-heading{margin:20px 16px 4px;font-size:12.5px;font-weight:600;color:var(--muted);}
+  .week-group{margin:8px 16px 0;}
+  .week-head{
+    display:flex;justify-content:space-between;align-items:baseline;
+    padding:0 4px 6px;
+    color:var(--muted);font-size:12.5px;font-weight:600;
+    letter-spacing:0.2px;
+  }
+  .week-head .total{color:var(--primary);font-weight:700;font-size:13px;}
+  .day-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:12px 14px;
+    margin-bottom:8px;
+  }
+  .day-card .day-row{display:flex;justify-content:space-between;align-items:center;}
+  .day-card .day-title{font-weight:600;font-size:14.5px;}
+  .day-card .day-date{color:var(--muted);font-size:12.5px;margin-top:1px;}
+  .day-card .day-total{font-weight:700;font-size:15px;color:var(--primary);}
+  .badge{
+    display:inline-block;font-size:11px;font-weight:600;
+    padding:2px 8px;border-radius:100px;margin-top:6px;
+  }
+  .badge.urlaub{background:#E7EEF2;color:var(--primary);}
+  .badge.krankheit{background:#F5E6E1;color:var(--danger);}
+  .badge.abbau{background:#EFE6D8;color:var(--accent-heiz);}
+  .item-line{
+    display:flex;justify-content:space-between;
+    font-size:13px;color:var(--muted);
+    padding:5px 0;border-top:1px solid var(--bg);
+  }
+  .item-line .k{color:var(--text);}
+  .item-line .k b{font-weight:600;}
+  .empty-state{
+    text-align:center;color:var(--muted);
+    padding:60px 30px;font-size:14px;line-height:1.6;
+  }
+  .fab-bar{
+    position:fixed;bottom:0;left:0;right:0;
+    display:flex;gap:10px;
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));
+    background:linear-gradient(to top, var(--bg) 60%, rgba(246,247,245,0));
+  }
+  .btn{
+    flex:1;border:none;border-radius:var(--radius);
+    padding:13px 14px;font-size:14.5px;font-weight:600;
+    display:flex;align-items:center;justify-content:center;gap:6px;
+  }
+  .btn.primary{background:var(--primary);color:#fff;}
+  .btn.primary:active{background:var(--primary-dark);}
+  .btn.secondary{background:var(--surface);color:var(--primary);border:1px solid var(--border);}
+  .btn.secondary:active{background:var(--bg);}
+
+  /* Modal */
+  .modal-backdrop{
+    position:fixed;inset:0;background:rgba(10,20,25,0.45);
+    display:none;z-index:50;align-items:flex-end;
+  }
+  .modal-backdrop.open{display:flex;}
+  .modal-sheet{
+    background:var(--bg);width:100%;max-height:92vh;overflow-y:auto;
+    border-radius:16px 16px 0 0;padding:18px 16px calc(24px + env(safe-area-inset-bottom,0px));
+    animation:slideup 0.18s ease-out;
+  }
+  @keyframes slideup{from{transform:translateY(24px);opacity:0.6;}to{transform:translateY(0);opacity:1;}}
+  .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+  .modal-head h2{font-size:17px;margin:0;}
+  .modal-head button{background:none;border:none;font-size:22px;color:var(--muted);width:32px;height:32px;}
+  label{display:block;font-size:12.5px;color:var(--muted);font-weight:600;margin:14px 0 5px;}
+  label:first-of-type{margin-top:0;}
+  input[type=text],input[type=number],input[type=date],input[type=time],select{
+    width:100%;padding:11px 12px;border:1px solid var(--border);
+    border-radius:9px;font-size:15px;background:var(--surface);color:var(--text);
+    font-family:inherit;
+  }
+  .row-2{display:flex;gap:10px;}
+  .row-2 > div{flex:1;}
+  .row-3{display:flex;gap:10px;}
+  .row-3 > div{flex:1;}
+  .type-tabs{display:flex;gap:6px;flex-wrap:wrap;}
+  .type-tab{
+    flex:1;min-width:76px;text-align:center;padding:9px 6px;
+    border:1px solid var(--border);border-radius:9px;font-size:12.5px;font-weight:600;
+    color:var(--muted);background:var(--surface);
+  }
+  .type-tab.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .item-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:9px;
+    padding:12px;margin-top:10px;position:relative;
+  }
+  .item-card .remove-item{
+    position:absolute;top:8px;right:8px;background:none;border:none;
+    color:var(--muted);font-size:16px;width:26px;height:26px;
+  }
+  .add-item-btn{
+    width:100%;margin-top:10px;padding:11px;border:1.5px dashed var(--border);
+    border-radius:9px;background:none;color:var(--primary);font-weight:600;font-size:13.5px;
+  }
+  .total-display{
+    margin-top:16px;background:var(--surface);border:1px solid var(--border);
+    border-radius:9px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;
+  }
+  .total-display .n{font-size:20px;font-weight:700;color:var(--primary);}
+  .modal-actions{display:flex;gap:10px;margin-top:18px;}
+  .delete-link{
+    display:block;text-align:center;color:var(--danger);font-size:13.5px;
+    margin-top:16px;background:none;border:none;font-weight:600;width:100%;padding:8px;
+  }
+  hr.sep{border:none;border-top:1px solid var(--border);margin:18px 0;}
+  .settings-hint{font-size:12px;color:var(--muted);margin-top:-2px;line-height:1.5;}
+  .toast{
+    position:fixed;bottom:96px;left:50%;transform:translateX(-50%);
+    background:var(--text);color:#fff;padding:10px 18px;border-radius:100px;
+    font-size:13.5px;font-weight:500;z-index:80;opacity:0;transition:opacity 0.2s;
+    pointer-events:none;white-space:nowrap;
+  }
+  .toast.show{opacity:1;}
+  .search-result{
+    background:var(--surface);border:1px solid var(--border);border-radius:9px;
+    padding:11px 13px;margin-bottom:8px;
+  }
+  .search-result .sr-top{display:flex;justify-content:space-between;font-size:13px;font-weight:600;}
+  .search-result .sr-sub{font-size:12px;color:var(--muted);margin-top:3px;}
+  .search-empty{text-align:center;color:var(--muted);font-size:13.5px;padding:30px 20px;}
+
+  /* Dashboard */
+  .dashboard{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:8px;
+    margin:12px 16px 0;
+  }
+  .dash-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:9px;
+    padding:10px 6px;text-align:center;
+  }
+  .dash-card .v{font-size:16px;font-weight:700;color:var(--primary);}
+  .dash-card .l{font-size:9.5px;color:var(--muted);margin-top:2px;font-weight:600;}
+
+  /* Notice banner */
+  .notice-banner{
+    margin:14px 16px 0;background:#FFF6E5;border:1px solid #EAD9AE;color:#7A5A1E;
+    border-radius:9px;padding:10px 12px;font-size:12.5px;display:flex;
+    justify-content:space-between;align-items:center;gap:8px;line-height:1.4;
+  }
+  .notice-banner button{background:none;border:none;color:#7A5A1E;font-weight:700;font-size:14px;flex-shrink:0;}
+
+  /* Toggle switch */
+  .toggle-row{display:flex;justify-content:space-between;align-items:center;}
+  .switch{position:relative;display:inline-block;width:44px;height:26px;flex-shrink:0;}
+  .switch input{opacity:0;width:0;height:0;}
+  .slider{position:absolute;cursor:pointer;inset:0;background:#D5D9DB;border-radius:100px;transition:0.15s;}
+  .slider:before{position:absolute;content:"";height:20px;width:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:0.15s;}
+  .switch input:checked + .slider{background:var(--primary);}
+  .switch input:checked + .slider:before{transform:translateX(18px);}
+
+  /* Lock button */
+  #lockMonth{background:none;border:none;font-size:16px;width:32px;height:32px;color:var(--primary);}
+
+  /* Dark mode */
+  body.dark{
+    --bg:#15191B;
+    --surface:#1F2427;
+    --text:#EDEFEF;
+    --muted:#8A9298;
+    --border:#2C3236;
+    --primary:#3E8FB0;
+    --primary-dark:#2E6E88;
+  }
+  body.dark .badge.urlaub{background:#26313A;color:#8FB6CC;}
+  body.dark .badge.krankheit{background:#3A2621;color:#E08B72;}
+  body.dark .badge.abbau{background:#3A2E1E;color:#E0A96F;}
+  body.dark .notice-banner{background:#3A2E1E;border-color:#5C4826;color:#E0C48C;}
+  body.dark .notice-banner button{color:#E0C48C;}
+  body.dark .cal-cell.muted{color:#3A4045;}
+  body.dark .modal-backdrop{background:rgba(0,0,0,0.6);}
+  body.dark .fab-bar{background:linear-gradient(to top, var(--bg) 60%, rgba(21,25,27,0));}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div>
+    <h1>Stundenzettel</h1>
+    <div class="sub" id="employeeSubline">John Haustechnik</div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button class="icon-btn" id="btnSearch" aria-label="Suche">🔍</button>
+    <button class="icon-btn" id="btnSettings" aria-label="Einstellungen">⚙</button>
+  </div>
+</header>
+
+<div class="month-nav">
+  <button id="prevMonth">‹</button>
+  <div class="label" id="monthLabel">September 2026</div>
+  <div style="display:flex;align-items:center;gap:4px;">
+    <button id="lockMonth" title="Monat abschließen">🔓</button>
+    <button id="nextMonth">›</button>
+  </div>
+</div>
+
+<div id="noticeBanner" class="notice-banner" style="display:none;"></div>
+
+<div class="dashboard" id="dashboard"></div>
+
+
+<div class="calendar-wrap">
+  <div class="cal-weekdays">
+    <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span>
+  </div>
+  <div class="cal-grid" id="calGrid"></div>
+  <div class="cal-legend">
+    <span><i class="dot work"></i>Arbeit</span>
+    <span><i class="dot urlaub"></i>Urlaub</span>
+    <span><i class="dot krankheit"></i>Krankheit</span>
+    <span><i class="dot abbau"></i>Abbau</span>
+  </div>
+</div>
+
+<div class="list-heading">Einträge im Monat</div>
+<div id="listContainer"></div>
+
+<div class="fab-bar">
+  <button class="btn secondary" id="btnExportCsv">CSV</button>
+  <button class="btn secondary" id="btnExport">PDF exportieren</button>
+  <button class="btn primary" id="btnAddDay">+ Tag erfassen</button>
+</div>
+
+<datalist id="kundenListe"></datalist>
+
+<!-- Settings Modal -->
+<div class="modal-backdrop" id="settingsModal">
+  <div class="modal-sheet">
+    <div class="modal-head">
+      <h2>Einstellungen</h2>
+      <button id="closeSettings">✕</button>
+    </div>
+    <label>Name</label>
+    <input type="text" id="setName" placeholder="Vorname Nachname">
+    <label>Straße &amp; Hausnummer</label>
+    <input type="text" id="setStreet" placeholder="Straße 1">
+    <label>PLZ &amp; Ort</label>
+    <input type="text" id="setCity" placeholder="26xxx Ort">
+    <hr class="sep">
+    <div class="settings-hint">Standard-Arbeitszeiten – werden beim Erfassen vorausgefüllt, pro Tag änderbar.</div>
+    <label>Montag – Donnerstag</label>
+    <div class="row-3">
+      <div><input type="time" id="setMonThuStart"></div>
+      <div><input type="time" id="setMonThuEnd"></div>
+      <div><input type="number" id="setMonThuPause" placeholder="Pause Min" step="5"></div>
+    </div>
+    <label>Freitag</label>
+    <div class="row-3">
+      <div><input type="time" id="setFriStart"></div>
+      <div><input type="time" id="setFriEnd"></div>
+      <div><input type="number" id="setFriPause" placeholder="Pause Min" step="5"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn primary" id="saveSettings" style="flex:1">Speichern</button>
+    </div>
+    <hr class="sep">
+    <div class="toggle-row">
+      <div>
+        <label style="margin:0;">Dunkelmodus</label>
+        <div class="settings-hint" style="margin-top:2px;">Angenehmer bei wenig Licht.</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="setDarkMode">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <hr class="sep">
+    <div class="settings-hint" id="lastBackupInfo">Noch keine Sicherung erstellt.</div>
+    <div class="modal-actions">
+      <button class="btn secondary" id="btnBackupExport" style="flex:1">Sicherung erstellen</button>
+      <button class="btn secondary" id="btnBackupImport" style="flex:1">Sicherung laden</button>
+    </div>
+    <input type="file" id="backupFileInput" accept="application/json" style="display:none;">
+  </div>
+</div>
+
+<!-- Day Entry Modal -->
+<div class="modal-backdrop" id="dayModal">
+  <div class="modal-sheet">
+    <div class="modal-head">
+      <h2 id="dayModalTitle">Tag erfassen</h2>
+      <button id="closeDayModal">✕</button>
+    </div>
+
+    <label>Datum</label>
+    <input type="date" id="dayDate">
+
+    <label>Art</label>
+    <div class="type-tabs" id="typeTabs">
+      <div class="type-tab active" data-type="work">Arbeit</div>
+      <div class="type-tab" data-type="urlaub">Urlaub</div>
+      <div class="type-tab" data-type="krankheit">Krankheit</div>
+      <div class="type-tab" data-type="abbau">Überstundenabbau</div>
+    </div>
+
+    <div id="workFields">
+      <button type="button" class="add-item-btn" id="copyPrevDayBtn" style="margin-top:0;">↻ Letzten Arbeitstag übernehmen</button>
+      <label>Arbeitszeit</label>
+      <div class="row-3">
+        <div><input type="time" id="dayStart"></div>
+        <div><input type="time" id="dayEnd"></div>
+        <div><input type="number" id="dayPause" placeholder="Pause Min" step="5"></div>
+      </div>
+
+      <div id="itemsContainer"></div>
+      <button class="add-item-btn" id="addItemBtn">+ Kunde / Tätigkeit hinzufügen</button>
+    </div>
+
+    <div id="abbauFields" style="display:none;">
+      <label>Stunden (negativ für Abbau, z.B. -5)</label>
+      <input type="number" id="abbauStunden" step="0.25" value="-5">
+    </div>
+
+    <div class="total-display">
+      <span>Tagessumme</span>
+      <span class="n" id="dayTotalDisplay">0,00</span>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn primary" id="saveDay" style="flex:1">Speichern</button>
+    </div>
+    <button class="delete-link" id="deleteDay" style="display:none;">Tag löschen</button>
+  </div>
+</div>
+
+<!-- Search Modal -->
+<div class="modal-backdrop" id="searchModal">
+  <div class="modal-sheet" style="min-height:70vh;">
+    <div class="modal-head">
+      <h2>Suche</h2>
+      <button id="closeSearch">✕</button>
+    </div>
+    <input type="text" id="searchInput" placeholder="Kunde oder Tätigkeit suchen..." autocomplete="off">
+    <div id="searchResults" style="margin-top:14px;"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="pdf.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
