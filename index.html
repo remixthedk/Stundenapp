@@ -222,6 +222,33 @@
     color:var(--muted);font-size:16px;width:26px;height:26px;
   }
   .typo-hint{font-size:11.5px;color:var(--accent-heiz);margin-top:4px;line-height:1.4;}
+  .mic-btn{
+    flex-shrink:0;width:42px;background:var(--surface);border:1px solid var(--border);
+    border-radius:9px;font-size:16px;
+  }
+  .day-card.select-mode{display:flex;align-items:flex-start;gap:10px;}
+  .day-card .select-checkbox{
+    width:20px;height:20px;flex-shrink:0;margin-top:2px;accent-color:var(--primary);
+  }
+  .day-card .day-content{flex:1;min-width:0;}
+  .share-import-row{
+    display:flex;align-items:center;gap:10px;background:var(--surface);
+    border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:6px;
+  }
+  .share-import-row input[type=checkbox]{width:20px;height:20px;flex-shrink:0;accent-color:var(--primary);}
+  .share-import-row .info{flex:1;min-width:0;}
+  .share-import-row .info .d{font-weight:600;font-size:13px;}
+  .share-import-row .info .s{font-size:11.5px;color:var(--muted);}
+  .share-import-row .conflict{color:var(--danger);font-size:11px;font-weight:600;}
+  .settings-group{border:1px solid var(--border);border-radius:9px;margin-bottom:8px;overflow:hidden;}
+  .settings-group-head{
+    width:100%;display:flex;justify-content:space-between;align-items:center;
+    padding:12px 14px;background:var(--surface);border:none;font-size:14px;font-weight:600;color:var(--text);
+  }
+  .settings-group-head .chev{color:var(--muted);font-size:12px;transition:transform 0.15s;}
+  .settings-group.open .settings-group-head .chev{transform:rotate(180deg);}
+  .settings-group-body{display:none;padding:0 14px 14px;}
+  .settings-group.open .settings-group-body{display:block;}
   .add-item-btn{
     width:100%;margin-top:10px;padding:11px;border:1.5px dashed var(--border);
     border-radius:9px;background:none;color:var(--primary);font-weight:600;font-size:13.5px;
@@ -379,8 +406,14 @@
   </div>
 </div>
 
-<div class="list-heading">Einträge im Monat</div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin:20px 16px 4px;">
+  <div class="list-heading" style="margin:0;">Einträge im Monat</div>
+  <button type="button" id="toggleSelectMode" class="kw-toggle">Auswählen</button>
+</div>
 <div id="listContainer"></div>
+<div id="shareSelectionBar" style="display:none;margin:8px 16px 0;">
+  <button class="btn primary" id="btnShareSelected" style="width:100%;">Auswahl teilen</button>
+</div>
 
 <datalist id="kundenListe"></datalist>
 
@@ -392,87 +425,152 @@
       <button id="closeSettings">✕</button>
     </div>
 
-    <div class="modal-actions">
-      <button class="btn secondary" id="btnExportCsv" style="flex:1">CSV exportieren</button>
-      <button class="btn secondary" id="btnExport" style="flex:1">PDF exportieren</button>
+    <!-- Export -->
+    <div class="settings-group open">
+      <button type="button" class="settings-group-head">
+        <span>📤 Export</span><span class="chev">▾</span>
+      </button>
+      <div class="settings-group-body">
+        <div class="modal-actions">
+          <button class="btn secondary" id="btnExportCsv" style="flex:1">CSV exportieren</button>
+          <button class="btn secondary" id="btnExportXlsx" style="flex:1">Excel exportieren</button>
+        </div>
+        <div class="modal-actions">
+          <button class="btn secondary" id="btnExport" style="flex:1">PDF exportieren</button>
+        </div>
+      </div>
     </div>
-    <hr class="sep">
 
-    <label>Name</label>
-    <input type="text" id="setName" placeholder="Vorname Nachname">
-    <label>Straße &amp; Hausnummer</label>
-    <input type="text" id="setStreet" placeholder="Straße 1">
-    <label>PLZ &amp; Ort</label>
-    <input type="text" id="setCity" placeholder="26xxx Ort">
-    <label>Jahresurlaubstage</label>
-    <input type="number" id="setUrlaubstage" placeholder="z.B. 30" step="1" min="0">
-    <label>E-Mail-Empfänger (für PDF-Versand)</label>
-    <input type="email" id="setEmailRecipient" placeholder="stunden@john-haustechnik.net">
-    <hr class="sep">
-    <div class="settings-hint">Standard-Arbeitszeiten – werden beim Erfassen vorausgefüllt, pro Tag änderbar.</div>
-    <label>Montag – Donnerstag</label>
-    <div class="row-3">
-      <div><input type="time" id="setMonThuStart"></div>
-      <div><input type="time" id="setMonThuEnd"></div>
-      <div><input type="number" id="setMonThuPause" placeholder="Pause Min" step="5"></div>
-    </div>
-    <label>Freitag</label>
-    <div class="row-3">
-      <div><input type="time" id="setFriStart"></div>
-      <div><input type="time" id="setFriEnd"></div>
-      <div><input type="number" id="setFriPause" placeholder="Pause Min" step="5"></div>
-    </div>
-    <hr class="sep">
-    <div class="toggle-row">
-      <div>
-        <label style="margin:0;">App-Sperre (PIN)</label>
-        <div class="settings-hint" style="margin-top:2px;">Fragt beim Öffnen einen 4-stelligen Code ab.</div>
+    <!-- Profil -->
+    <div class="settings-group">
+      <button type="button" class="settings-group-head">
+        <span>👤 Profil</span><span class="chev">▾</span>
+      </button>
+      <div class="settings-group-body">
+        <label style="margin-top:0;">Name</label>
+        <input type="text" id="setName" placeholder="Vorname Nachname">
+        <label>Straße &amp; Hausnummer</label>
+        <input type="text" id="setStreet" placeholder="Straße 1">
+        <label>PLZ &amp; Ort</label>
+        <input type="text" id="setCity" placeholder="26xxx Ort">
+        <label>Jahresurlaubstage</label>
+        <input type="number" id="setUrlaubstage" placeholder="z.B. 30" step="1" min="0">
+        <label>E-Mail-Empfänger (für PDF-Versand)</label>
+        <input type="email" id="setEmailRecipient" placeholder="stunden@john-haustechnik.net">
       </div>
-      <label class="switch">
-        <input type="checkbox" id="setPinEnabled">
-        <span class="slider"></span>
-      </label>
     </div>
-    <div id="pinSetupFields" style="display:none;margin-top:10px;">
-      <label>Neuer PIN (4 Ziffern)</label>
-      <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="setPinNew" placeholder="••••">
-      <label>PIN bestätigen</label>
-      <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="setPinConfirm" placeholder="••••">
-      <div class="settings-hint" id="pinExistingHint" style="display:none;">Bereits eingerichtet – leer lassen, um den PIN nicht zu ändern.</div>
-    </div>
-    <hr class="sep">
-    <div class="toggle-row">
-      <div>
-        <label style="margin:0;">Bürozeit-Anteil anzeigen</label>
-        <div class="settings-hint" style="margin-top:2px;">Zeigt den %-Anteil "Büroarbeiten" an den Gesamtstunden im Dashboard.</div>
+
+    <!-- Arbeitszeiten -->
+    <div class="settings-group">
+      <button type="button" class="settings-group-head">
+        <span>🕐 Arbeitszeiten</span><span class="chev">▾</span>
+      </button>
+      <div class="settings-group-body">
+        <div class="settings-hint" style="margin-top:0;">Standard-Arbeitszeiten – werden beim Erfassen vorausgefüllt, pro Tag änderbar.</div>
+        <label>Montag – Donnerstag</label>
+        <div class="row-3">
+          <div><input type="time" id="setMonThuStart"></div>
+          <div><input type="time" id="setMonThuEnd"></div>
+          <div><input type="number" id="setMonThuPause" placeholder="Pause Min" step="5"></div>
+        </div>
+        <label>Freitag</label>
+        <div class="row-3">
+          <div><input type="time" id="setFriStart"></div>
+          <div><input type="time" id="setFriEnd"></div>
+          <div><input type="number" id="setFriPause" placeholder="Pause Min" step="5"></div>
+        </div>
       </div>
-      <label class="switch">
-        <input type="checkbox" id="setShowOfficeShare">
-        <span class="slider"></span>
-      </label>
     </div>
-    <hr class="sep">
-    <div class="toggle-row">
-      <div>
-        <label style="margin:0;">Dunkelmodus</label>
-        <div class="settings-hint" style="margin-top:2px;">Angenehmer bei wenig Licht.</div>
+
+    <!-- Sicherheit -->
+    <div class="settings-group">
+      <button type="button" class="settings-group-head">
+        <span>🔒 Sicherheit</span><span class="chev">▾</span>
+      </button>
+      <div class="settings-group-body">
+        <div class="toggle-row">
+          <div>
+            <label style="margin:0;">App-Sperre (PIN)</label>
+            <div class="settings-hint" style="margin-top:2px;">Fragt beim Öffnen einen 4-stelligen Code ab.</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="setPinEnabled">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div id="pinSetupFields" style="display:none;margin-top:10px;">
+          <label>Neuer PIN (4 Ziffern)</label>
+          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="setPinNew" placeholder="••••">
+          <label>PIN bestätigen</label>
+          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="setPinConfirm" placeholder="••••">
+          <div class="settings-hint" id="pinExistingHint" style="display:none;">Bereits eingerichtet – leer lassen, um den PIN nicht zu ändern.</div>
+        </div>
       </div>
-      <label class="switch">
-        <input type="checkbox" id="setDarkMode">
-        <span class="slider"></span>
-      </label>
     </div>
-    <hr class="sep">
-    <div class="settings-hint" id="lastBackupInfo">Noch keine Sicherung erstellt.</div>
-    <div class="modal-actions">
-      <button class="btn secondary" id="btnBackupExport" style="flex:1">Sicherung erstellen</button>
-      <button class="btn secondary" id="btnBackupImport" style="flex:1">Sicherung laden</button>
+
+    <!-- Darstellung -->
+    <div class="settings-group">
+      <button type="button" class="settings-group-head">
+        <span>🎨 Darstellung</span><span class="chev">▾</span>
+      </button>
+      <div class="settings-group-body">
+        <div class="toggle-row">
+          <div><label style="margin:0;">Dunkelmodus</label></div>
+          <label class="switch"><input type="checkbox" id="setDarkMode"><span class="slider"></span></label>
+        </div>
+        <hr class="sep">
+        <div class="settings-hint" style="margin-top:0;">Dashboard-Kacheln – wähle, was du im Monats-Dashboard sehen willst.</div>
+        <div class="toggle-row">
+          <div><label style="margin:0;">Urlaub</label></div>
+          <label class="switch"><input type="checkbox" id="setTileUrlaub"><span class="slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div><label style="margin:0;">Krank</label></div>
+          <label class="switch"><input type="checkbox" id="setTileKrank"><span class="slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div><label style="margin:0;">Schule</label></div>
+          <label class="switch"><input type="checkbox" id="setTileSchule"><span class="slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div><label style="margin:0;">Abbau</label></div>
+          <label class="switch"><input type="checkbox" id="setTileAbbau"><span class="slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div><label style="margin:0;">Kunden</label></div>
+          <label class="switch"><input type="checkbox" id="setTileKunden"><span class="slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div><label style="margin:0;">Bürozeit-Anteil</label></div>
+          <label class="switch"><input type="checkbox" id="setShowOfficeShare"><span class="slider"></span></label>
+        </div>
+      </div>
     </div>
-    <input type="file" id="backupFileInput" accept="application/json" style="display:none;">
-    <hr class="sep">
-    <div class="modal-actions">
-      <button class="btn secondary" id="btnShowQr" style="flex:1">📱 QR-Code zur Installation</button>
+
+    <!-- Datensicherung -->
+    <div class="settings-group">
+      <button type="button" class="settings-group-head">
+        <span>💾 Datensicherung</span><span class="chev">▾</span>
+      </button>
+      <div class="settings-group-body">
+        <div class="settings-hint" id="lastBackupInfo" style="margin-top:0;">Noch keine Sicherung erstellt.</div>
+        <div class="modal-actions">
+          <button class="btn secondary" id="btnBackupExport" style="flex:1">Sicherung erstellen</button>
+          <button class="btn secondary" id="btnBackupImport" style="flex:1">Sicherung laden</button>
+        </div>
+        <input type="file" id="backupFileInput" accept="application/json" style="display:none;">
+        <hr class="sep">
+        <div class="modal-actions">
+          <button class="btn secondary" id="btnImportShared" style="flex:1">Geteilte Tage importieren</button>
+        </div>
+        <input type="file" id="sharedFileInput" accept="application/json" style="display:none;">
+        <hr class="sep">
+        <div class="modal-actions">
+          <button class="btn secondary" id="btnShowQr" style="flex:1">📱 QR-Code zur Installation</button>
+        </div>
+      </div>
     </div>
+
     <hr class="sep">
     <div class="modal-actions">
       <button class="btn primary" id="saveSettings" style="flex:1">Speichern</button>
@@ -516,6 +614,23 @@
     <div id="abbauFields" style="display:none;">
       <label>Stunden (negativ für Abbau, z.B. -5)</label>
       <input type="number" id="abbauStunden" step="0.25" value="-5">
+    </div>
+
+    <div id="rangeFields" style="display:none;">
+      <div class="toggle-row" style="margin-top:14px;">
+        <div><label style="margin:0;">Zeitraum (mehrere Tage)</label></div>
+        <label class="switch">
+          <input type="checkbox" id="rangeToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div id="rangeDates" style="display:none;margin-top:10px;">
+        <label style="margin-top:0;">Von</label>
+        <input type="date" id="rangeFrom">
+        <label>Bis</label>
+        <input type="date" id="rangeTo">
+        <div class="settings-hint">Wochenenden werden automatisch übersprungen. Das oben gewählte Datum gilt als "Von".</div>
+      </div>
     </div>
 
     <div class="total-display">
@@ -568,6 +683,21 @@
 
     <div class="settings-hint" style="margin-bottom:8px;">Monatsübersicht</div>
     <div id="yearTable"></div>
+  </div>
+</div>
+
+<!-- Shared Days Import Modal -->
+<div class="modal-backdrop" id="shareImportModal">
+  <div class="modal-sheet" style="min-height:60vh;">
+    <div class="modal-head">
+      <h2>Geteilte Tage</h2>
+      <button id="closeShareImport">✕</button>
+    </div>
+    <div class="settings-hint" id="shareImportInfo" style="margin-top:0;">Wähle aus, welche Tage übernommen werden sollen.</div>
+    <div id="shareImportList" style="margin:12px 0;"></div>
+    <div class="modal-actions">
+      <button class="btn primary" id="confirmShareImport" style="flex:1">Auswahl übernehmen</button>
+    </div>
   </div>
 </div>
 
@@ -624,6 +754,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="pdf.js"></script>
 <script src="app.js"></script>
 </body>

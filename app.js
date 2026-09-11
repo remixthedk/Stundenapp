@@ -66,7 +66,8 @@ const DEFAULT_SETTINGS = {
   friStart:'07:00', friEnd:'12:30', friPause:30,
   darkMode:false, lastBackupAt:null, urlaubstage:30,
   pinEnabled:false, pinHash:null, emailRecipient:'stunden@john-haustechnik.net',
-  showOfficeShare:false
+  showOfficeShare:false,
+  tileUrlaub:true, tileKrank:true, tileSchule:true, tileAbbau:true, tileKunden:true
 };
 
 function isStorageAvailable(){
@@ -168,16 +169,24 @@ function renderDashboard(monthDays){
 
   const cards = [
     `<div class="dash-card"><div class="v">${fmtHours(total)}</div><div class="l">STD GESAMT</div></div>`,
-    `<div class="dash-card"><div class="v">${urlaubTage}</div><div class="l">URLAUB</div></div>`,
-    `<div class="dash-card"><div class="v">${krankTage}</div><div class="l">KRANK</div></div>`,
   ];
-  if(schuleTage > 0){
+  if(settings.tileUrlaub !== false){
+    cards.push(`<div class="dash-card"><div class="v">${urlaubTage}</div><div class="l">URLAUB</div></div>`);
+  }
+  if(settings.tileKrank !== false){
+    cards.push(`<div class="dash-card"><div class="v">${krankTage}</div><div class="l">KRANK</div></div>`);
+  }
+  if(settings.tileSchule !== false && schuleTage > 0){
     cards.push(`<div class="dash-card"><div class="v">${schuleTage}</div><div class="l">SCHULE</div></div>`);
   }
-  cards.push(`<div class="dash-card"><div class="v">${fmtHours(abbau)}</div><div class="l">ABBAU</div></div>`);
+  if(settings.tileAbbau !== false){
+    cards.push(`<div class="dash-card"><div class="v">${fmtHours(abbau)}</div><div class="l">ABBAU</div></div>`);
+  }
 
-  const kundenCount = countDistinctKunden(monthDays);
-  cards.push(`<div class="dash-card"><div class="v">${kundenCount}</div><div class="l">KUNDEN</div></div>`);
+  if(settings.tileKunden !== false){
+    const kundenCount = countDistinctKunden(monthDays);
+    cards.push(`<div class="dash-card"><div class="v">${kundenCount}</div><div class="l">KUNDEN</div></div>`);
+  }
 
   if(settings.showOfficeShare){
     const pct = officeSharePercent(monthDays);
@@ -361,6 +370,8 @@ function populateKundenDatalist(){
 
 /* ===== Rendering: calendar grid ===== */
 let showKW = localStorage.getItem('sz_show_kw') === '1';
+let selectMode = false;
+let selectedDates = new Set();
 
 function renderCalendar(monthDays){
   const y = viewDate.getFullYear(), m = viewDate.getMonth();
@@ -528,7 +539,32 @@ function render(){
         </div>
         ${bodyHtml}
       `;
-      card.addEventListener('click', () => openDayModal(d.date));
+
+      if(selectMode){
+        card.classList.add('select-mode');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'select-checkbox';
+        checkbox.checked = selectedDates.has(d.date);
+        checkbox.addEventListener('click', (e) => e.stopPropagation());
+        checkbox.addEventListener('change', () => {
+          if(checkbox.checked) selectedDates.add(d.date);
+          else selectedDates.delete(d.date);
+          updateShareSelectionBar();
+        });
+        const contentWrap = document.createElement('div');
+        contentWrap.className = 'day-content';
+        contentWrap.innerHTML = card.innerHTML;
+        card.innerHTML = '';
+        card.appendChild(checkbox);
+        card.appendChild(contentWrap);
+        card.addEventListener('click', () => {
+          checkbox.checked = !checkbox.checked;
+          checkbox.dispatchEvent(new Event('change'));
+        });
+      } else {
+        card.addEventListener('click', () => openDayModal(d.date));
+      }
       groupEl.appendChild(card);
     });
 
@@ -565,6 +601,9 @@ function openDayModal(targetDate){
   document.getElementById('dayModalTitle').textContent = existing ? 'Tag bearbeiten' : 'Tag erfassen';
   document.getElementById('deleteDay').style.display = existing ? 'block' : 'none';
   document.getElementById('copyPrevDayBtn').style.display = existing ? 'none' : 'block';
+  document.getElementById('rangeToggle').checked = false;
+  document.getElementById('rangeDates').style.display = 'none';
+  document.getElementById('rangeToggle').closest('.toggle-row').style.display = existing ? 'none' : 'flex';
 
   const dateInput = document.getElementById('dayDate');
   dateInput.value = existing ? existing.date : (targetDate || toISODate(new Date()));
@@ -625,6 +664,12 @@ function setActiveType(type){
   document.querySelectorAll('.type-tab').forEach(t => t.classList.toggle('active', t.dataset.type===type));
   document.getElementById('workFields').style.display = type==='work' ? 'block' : 'none';
   document.getElementById('abbauFields').style.display = type==='abbau' ? 'block' : 'none';
+  const isRangeable = ['urlaub','krankheit','schule'].includes(type);
+  document.getElementById('rangeFields').style.display = isRangeable ? 'block' : 'none';
+  if(!isRangeable){
+    document.getElementById('rangeToggle').checked = false;
+    document.getElementById('rangeDates').style.display = 'none';
+  }
 }
 
 document.getElementById('typeTabs').addEventListener('click', (e) => {
@@ -632,6 +677,17 @@ document.getElementById('typeTabs').addEventListener('click', (e) => {
   if(!tab) return;
   setActiveType(tab.dataset.type);
   updateDayTotalDisplay();
+});
+
+document.getElementById('rangeToggle').addEventListener('change', (e) => {
+  document.getElementById('rangeDates').style.display = e.target.checked ? 'block' : 'none';
+  if(e.target.checked){
+    const current = document.getElementById('dayDate').value;
+    if(current){
+      document.getElementById('rangeFrom').value = current;
+      document.getElementById('rangeTo').value = current;
+    }
+  }
 });
 
 function addItemRow(existing){
@@ -649,7 +705,10 @@ function addItemRow(existing){
     <label>Stunden</label>
     <input type="number" class="it-stunden" step="0.25" value="${existing? existing.stunden : ''}">
     <label>📝 Notiz <span style="font-weight:400;color:var(--muted);">– nur in der App sichtbar, nicht im PDF</span></label>
-    <input type="text" class="it-notiz" placeholder="z.B. Ersatzteil nachbestellen..." value="${existing? escapeHtml(existing.notiz||'') : ''}">
+    <div style="display:flex;gap:6px;">
+      <input type="text" class="it-notiz" placeholder="z.B. Ersatzteil nachbestellen..." value="${existing? escapeHtml(existing.notiz||'') : ''}" style="flex:1;">
+      <button type="button" class="mic-btn" title="Diktieren">🎤</button>
+    </div>
   `;
   wrap.querySelector('.remove-item').addEventListener('click', () => {
     wrap.remove();
@@ -657,7 +716,34 @@ function addItemRow(existing){
   });
   wrap.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateDayTotalDisplay));
   wrap.querySelector('.it-kunde').addEventListener('blur', (e) => checkTypo(e.target, wrap.querySelector('.typo-hint')));
+  setupVoiceInput(wrap.querySelector('.mic-btn'), wrap.querySelector('.it-notiz'));
   document.getElementById('itemsContainer').appendChild(wrap);
+}
+
+/* ===== Spracheingabe (Notizfeld) ===== */
+const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+function setupVoiceInput(btn, inputEl){
+  if(!SpeechRecognitionAPI){
+    btn.style.display = 'none';
+    return;
+  }
+  btn.addEventListener('click', () => {
+    const recognition = new SpeechRecognitionAPI();
+    recognition.lang = 'de-DE';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    btn.textContent = '🔴';
+    recognition.start();
+
+    recognition.onresult = (e) => {
+      const text = e.results[0][0].transcript;
+      inputEl.value = inputEl.value ? `${inputEl.value} ${text}` : text;
+    };
+    recognition.onerror = () => { toast('Spracheingabe fehlgeschlagen'); };
+    recognition.onend = () => { btn.textContent = '🎤'; };
+  });
 }
 
 /* ===== Tippfehler-Check ===== */
@@ -741,6 +827,52 @@ function updateDayTotalDisplay(){
 document.getElementById('abbauStunden').addEventListener('input', updateDayTotalDisplay);
 
 document.getElementById('saveDay').addEventListener('click', () => {
+  const type = document.querySelector('.type-tab.active').dataset.type;
+  const isRangeable = ['urlaub','krankheit','schule'].includes(type);
+  const rangeOn = isRangeable && document.getElementById('rangeToggle').checked;
+
+  if(rangeOn){
+    const from = document.getElementById('rangeFrom').value;
+    const to = document.getElementById('rangeTo').value;
+    if(!from || !to){ toast('Bitte Von und Bis wählen'); return; }
+    if(to < from){ toast('"Bis" muss nach "Von" liegen'); return; }
+
+    const datesToCreate = [];
+    let skippedLocked = 0;
+    let cur = fromISODate(from);
+    const end = fromISODate(to);
+    while(cur <= end){
+      const dow = cur.getDay();
+      if(dow >= 1 && dow <= 5){
+        if(isMonthLocked(cur)) skippedLocked++;
+        else datesToCreate.push(toISODate(cur));
+      }
+      cur = addDays(cur, 1);
+    }
+    if(datesToCreate.length === 0){
+      toast(skippedLocked > 0 ? 'Alle Tage liegen in einem gesperrten Monat' : 'Keine Werktage im gewählten Zeitraum');
+      return;
+    }
+
+    const existingCount = datesToCreate.filter(iso => days.find(d=>d.date===iso)).length;
+    if(existingCount > 0){
+      const ok = window.confirm(`${existingCount} von ${datesToCreate.length} Werktagen haben bereits einen Eintrag – diese werden überschrieben. Fortfahren?`);
+      if(!ok) return;
+    }
+
+    datesToCreate.forEach(iso => {
+      days = days.filter(d => d.date !== iso);
+      days.push({date: iso, type});
+    });
+    const saveOk = saveDays(days);
+    closeDayModal();
+    render();
+    let msg = `${datesToCreate.length} Werktage eingetragen`;
+    if(skippedLocked > 0) msg += ` (${skippedLocked} in gesperrtem Monat übersprungen)`;
+    toast(saveOk ? msg : '⚠️ Speichern fehlgeschlagen – Speicher voll oder blockiert?');
+    return;
+  }
+
   const date = document.getElementById('dayDate').value;
   if(!date){ toast('Bitte ein Datum wählen'); return; }
   if(isMonthLocked(fromISODate(date))){ toast('Monat ist abgeschlossen'); return; }
@@ -750,8 +882,6 @@ document.getElementById('saveDay').addEventListener('click', () => {
     const ok = window.confirm(`Für ${fmtDate(fromISODate(date))} existiert bereits ein Eintrag. Wirklich überschreiben?`);
     if(!ok) return;
   }
-
-  const type = document.querySelector('.type-tab.active').dataset.type;
 
   let record = { date, type };
   if(type === 'work'){
@@ -806,6 +936,11 @@ function openSettings(){
   document.getElementById('setFriEnd').value = settings.friEnd;
   document.getElementById('setFriPause').value = settings.friPause;
   document.getElementById('setShowOfficeShare').checked = !!settings.showOfficeShare;
+  document.getElementById('setTileUrlaub').checked = settings.tileUrlaub !== false;
+  document.getElementById('setTileKrank').checked = settings.tileKrank !== false;
+  document.getElementById('setTileSchule').checked = settings.tileSchule !== false;
+  document.getElementById('setTileAbbau').checked = settings.tileAbbau !== false;
+  document.getElementById('setTileKunden').checked = settings.tileKunden !== false;
   document.getElementById('setDarkMode').checked = !!settings.darkMode;
   document.getElementById('setPinEnabled').checked = !!settings.pinEnabled;
   document.getElementById('setPinNew').value = '';
@@ -862,6 +997,11 @@ document.getElementById('saveSettings').addEventListener('click', () => {
     friEnd: document.getElementById('setFriEnd').value,
     friPause: parseFloat(document.getElementById('setFriPause').value) || 0,
     showOfficeShare: document.getElementById('setShowOfficeShare').checked,
+    tileUrlaub: document.getElementById('setTileUrlaub').checked,
+    tileKrank: document.getElementById('setTileKrank').checked,
+    tileSchule: document.getElementById('setTileSchule').checked,
+    tileAbbau: document.getElementById('setTileAbbau').checked,
+    tileKunden: document.getElementById('setTileKunden').checked,
     darkMode: document.getElementById('setDarkMode').checked,
     pinEnabled, pinHash,
   };
@@ -1131,10 +1271,6 @@ document.getElementById('btnExportYearPdf').addEventListener('click', async () =
   if(yearDays.length === 0){ toast('Keine Einträge in diesem Jahr'); return; }
   if(!settings.name){ toast('Bitte zuerst Name eintragen'); return; }
 
-  if(isMobileDevice && settings.emailRecipient){
-    const ok = window.confirm(`Ziel für den PDF-Versand:\n\n${settings.emailRecipient}\n\nWeiter zum Teilen-Menü?`);
-    if(!ok) return;
-  }
 
   await generateStundenzettelPDF(yearDays, settings, viewDate, logoImg, !isMobileDevice, `Jahr-${analyticsYear}`);
   analyticsModal.classList.remove('open');
@@ -1147,10 +1283,6 @@ document.getElementById('btnExportYearPdfCompact').addEventListener('click', asy
   if(yearDays.length === 0){ toast('Keine Einträge in diesem Jahr'); return; }
   if(!settings.name){ toast('Bitte zuerst Name eintragen'); return; }
 
-  if(isMobileDevice && settings.emailRecipient){
-    const ok = window.confirm(`Ziel für den PDF-Versand:\n\n${settings.emailRecipient}\n\nWeiter zum Teilen-Menü?`);
-    if(!ok) return;
-  }
 
   await generateStundenzettelPDFCompact(yearDays, settings, viewDate, logoImg, !isMobileDevice, `Jahr-${analyticsYear}`);
   analyticsModal.classList.remove('open');
@@ -1402,24 +1534,31 @@ function currentMonthDays(){
     .sort((a,b)=> a.date.localeCompare(b.date));
 }
 
-document.getElementById('btnExportCsv').addEventListener('click', () => {
-  const monthDays = currentMonthDays();
-  if(monthDays.length === 0){ toast('Keine Einträge in diesem Monat'); return; }
-
+function buildExportRows(monthDays){
   const rows = [['Datum','Wochentag','KW','Typ','Kunde','Taetigkeit','Stunden']];
   monthDays.forEach(d => {
     const dt = fromISODate(d.date);
     const wk = isoWeek(dt);
     if(d.type === 'work'){
       (d.items||[]).forEach(it => {
-        rows.push([fmtDate(dt), WEEKDAYS[dt.getDay()], wk, 'Arbeit', it.kunde||'', it.taetigkeit||'', fmtHours(parseFloat(it.stunden)||0)]);
+        rows.push([fmtDate(dt), WEEKDAYS[dt.getDay()], wk, 'Arbeit', it.kunde||'', it.taetigkeit||'', parseFloat(it.stunden)||0]);
       });
     } else {
-      const csvLabels = {urlaub:'Urlaub', krankheit:'Krankheit', schule:'Schule', abbau:'Ueberstundenabbau'};
-      const label = csvLabels[d.type] || d.type;
-      rows.push([fmtDate(dt), WEEKDAYS[dt.getDay()], wk, label, '', '', fmtHours(dayTotal(d))]);
+      const labels = {urlaub:'Urlaub', krankheit:'Krankheit', schule:'Schule', abbau:'Ueberstundenabbau'};
+      const label = labels[d.type] || d.type;
+      rows.push([fmtDate(dt), WEEKDAYS[dt.getDay()], wk, label, '', '', dayTotal(d)]);
     }
   });
+  return rows;
+}
+
+document.getElementById('btnExportCsv').addEventListener('click', () => {
+  const monthDays = currentMonthDays();
+  if(monthDays.length === 0){ toast('Keine Einträge in diesem Monat'); return; }
+
+  const rows = buildExportRows(monthDays).map(r => r.map((cell,i) =>
+    (i === 6 && typeof cell === 'number') ? fmtHours(cell) : cell
+  ));
 
   const csv = rows.map(r => r.map(cell => {
     const s = String(cell).replace(/"/g,'""');
@@ -1437,6 +1576,23 @@ document.getElementById('btnExportCsv').addEventListener('click', () => {
   toast('CSV heruntergeladen');
 });
 
+document.getElementById('btnExportXlsx').addEventListener('click', () => {
+  const monthDays = currentMonthDays();
+  if(monthDays.length === 0){ toast('Keine Einträge in diesem Monat'); return; }
+  if(typeof XLSX === 'undefined'){ toast('Excel-Export gerade nicht verfügbar (kein Internet beim ersten Laden?)'); return; }
+
+  const rows = buildExportRows(monthDays);
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:11},{wch:11},{wch:5},{wch:12},{wch:20},{wch:28},{wch:9}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Stundenzettel');
+
+  const fname = `Stundenzettel_${(settings.name||'').replace(/\s+/g,'-')}_${MONTHS[viewDate.getMonth()]}-${viewDate.getFullYear()}.xlsx`;
+  XLSX.writeFile(wb, fname);
+  settingsModal.classList.remove('open');
+  toast('Excel-Datei heruntergeladen');
+});
+
 const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 document.getElementById('btnExport').addEventListener('click', async () => {
@@ -1444,10 +1600,6 @@ document.getElementById('btnExport').addEventListener('click', async () => {
   if(monthDays.length === 0){ toast('Keine Einträge in diesem Monat'); return; }
   if(!settings.name){ toast('Bitte zuerst Name eintragen'); return; }
 
-  if(isMobileDevice && settings.emailRecipient){
-    const ok = window.confirm(`Ziel für den PDF-Versand:\n\n${settings.emailRecipient}\n\nWeiter zum Teilen-Menü?`);
-    if(!ok) return;
-  }
 
   await generateStundenzettelPDF(monthDays, settings, viewDate, logoImg, !isMobileDevice);
   settingsModal.classList.remove('open');
@@ -1495,6 +1647,153 @@ function checkAppLock(){
   });
 }
 
+/* ===== Auswahlmodus & Tage teilen ===== */
+document.getElementById('toggleSelectMode').addEventListener('click', () => {
+  selectMode = !selectMode;
+  selectedDates = new Set();
+  document.getElementById('toggleSelectMode').textContent = selectMode ? 'Fertig' : 'Auswählen';
+  updateShareSelectionBar();
+  render();
+});
+
+function updateShareSelectionBar(){
+  const bar = document.getElementById('shareSelectionBar');
+  const btn = document.getElementById('btnShareSelected');
+  if(selectMode && selectedDates.size > 0){
+    bar.style.display = 'block';
+    btn.textContent = `${selectedDates.size} Tag(e) teilen`;
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+document.getElementById('btnShareSelected').addEventListener('click', async () => {
+  const selectedDays = days.filter(d => selectedDates.has(d.date)).sort((a,b)=> a.date.localeCompare(b.date));
+  if(selectedDays.length === 0) return;
+
+  const payload = {
+    app: 'stundenzettel-share',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    sharedBy: settings.name || '',
+    days: selectedDays
+  };
+  const json = JSON.stringify(payload, null, 2);
+  const first = selectedDays[0].date, last = selectedDays[selectedDays.length-1].date;
+  const fname = `Stunden-Geteilt_${first}_bis_${last}.json`;
+  const blob = new Blob([json], {type:'application/json'});
+
+  try{
+    const file = new File([blob], fname, {type:'application/json'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:'Geteilte Stundentage'});
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = fname;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  }catch(e){ /* Nutzer hat abgebrochen */ }
+
+  selectMode = false;
+  selectedDates = new Set();
+  document.getElementById('toggleSelectMode').textContent = 'Auswählen';
+  updateShareSelectionBar();
+  render();
+});
+
+/* ===== Geteilte Tage importieren ===== */
+const shareImportModal = document.getElementById('shareImportModal');
+let pendingSharedDays = [];
+
+document.getElementById('btnImportShared').addEventListener('click', () => {
+  document.getElementById('sharedFileInput').click();
+});
+
+document.getElementById('sharedFileInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let data;
+    try{ data = JSON.parse(reader.result); }
+    catch(err){ toast('Datei ungültig'); return; }
+
+    if(!data || !Array.isArray(data.days) || data.days.length === 0){
+      toast('Keine gültige Datei mit geteilten Tagen');
+      return;
+    }
+
+    pendingSharedDays = data.days;
+    renderShareImportList(data.sharedBy);
+    settingsModal.classList.remove('open');
+    shareImportModal.classList.add('open');
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+function renderShareImportList(sharedBy){
+  const info = document.getElementById('shareImportInfo');
+  info.textContent = sharedBy
+    ? `Geteilt von ${sharedBy}. Wähle aus, welche Tage übernommen werden sollen.`
+    : 'Wähle aus, welche Tage übernommen werden sollen.';
+
+  const typeLabels = {work:'Arbeit', urlaub:'Urlaub', krankheit:'Krankheit', schule:'Schule', abbau:'Überstundenabbau'};
+  const list = document.getElementById('shareImportList');
+  list.innerHTML = pendingSharedDays.map((d, idx) => {
+    const dt = fromISODate(d.date);
+    const existing = days.find(x => x.date === d.date);
+    const std = dayTotal(d);
+    return `<div class="share-import-row">
+      <input type="checkbox" class="share-import-check" data-idx="${idx}" checked>
+      <div class="info">
+        <div class="d">${WEEKDAYS[dt.getDay()]}, ${fmtDate(dt)} – ${typeLabels[d.type]||d.type}</div>
+        <div class="s">${fmtHours(std)} Std${existing ? ' · <span class="conflict">überschreibt bestehenden Eintrag</span>' : ''}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('closeShareImport').addEventListener('click', () => shareImportModal.classList.remove('open'));
+shareImportModal.addEventListener('click', (e) => { if(e.target === shareImportModal) shareImportModal.classList.remove('open'); });
+
+document.getElementById('confirmShareImport').addEventListener('click', () => {
+  const checks = document.querySelectorAll('.share-import-check');
+  const chosen = [];
+  checks.forEach(cb => { if(cb.checked) chosen.push(pendingSharedDays[parseInt(cb.dataset.idx)]); });
+
+  if(chosen.length === 0){ toast('Keine Tage ausgewählt'); return; }
+
+  const lockedSkip = chosen.filter(d => isMonthLocked(fromISODate(d.date)));
+  const toApply = chosen.filter(d => !isMonthLocked(fromISODate(d.date)));
+
+  if(toApply.length === 0){
+    toast('Alle ausgewählten Tage liegen in gesperrten Monaten');
+    return;
+  }
+
+  toApply.forEach(d => {
+    days = days.filter(x => x.date !== d.date);
+    days.push(d);
+  });
+  const saveOk = saveDays(days);
+  shareImportModal.classList.remove('open');
+  render();
+
+  let msg = `${toApply.length} Tag(e) übernommen`;
+  if(lockedSkip.length > 0) msg += ` (${lockedSkip.length} in gesperrtem Monat übersprungen)`;
+  toast(saveOk ? msg : '⚠️ Speichern fehlgeschlagen – Speicher voll oder blockiert?');
+});
+
+/* ===== Einstellungen: aufklappbare Gruppen ===== */
+document.querySelectorAll('.settings-group-head').forEach(btn => {
+  btn.addEventListener('click', () => {
+    btn.closest('.settings-group').classList.toggle('open');
+  });
+});
+
 /* ===== Init ===== */
 applyDarkMode();
 const logoImg = new Image();
@@ -1502,3 +1801,9 @@ logoImg.src = 'logo.png';
 
 render();
 checkAppLock();
+
+// App-Verknüpfung "Heute erfassen" (Homescreen-Shortcut)
+const urlParams = new URLSearchParams(window.location.search);
+if(urlParams.get('action') === 'today'){
+  setTimeout(() => openDayModal(toISODate(new Date())), 300);
+}
