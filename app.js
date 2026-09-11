@@ -1800,8 +1800,10 @@ function updateShareSelectionBar(){
   if(selectMode && selectedDates.size > 0){
     bar.style.display = 'block';
     btn.textContent = `${selectedDates.size} Tag(e) teilen`;
+    document.body.classList.add('has-share-bar');
   } else {
     bar.style.display = 'none';
+    document.body.classList.remove('has-share-bar');
   }
 }
 
@@ -1959,7 +1961,7 @@ document.querySelectorAll('.settings-group-head').forEach(btn => {
 });
 
 /* ===== Init ===== */
-const APP_VERSION = 'v32'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v33'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 applyDarkMode();
 const logoImg = new Image();

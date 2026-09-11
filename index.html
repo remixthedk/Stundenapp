@@ -33,6 +33,7 @@
     font-variant-numeric:tabular-nums;
     -webkit-font-smoothing:antialiased;
     padding-bottom:24px;
+    transition:padding-bottom 0.15s;
   }
   header.topbar{
     position:sticky;top:0;z-index:20;
@@ -173,12 +174,13 @@
     text-align:center;color:var(--muted);
     padding:60px 30px;font-size:14px;line-height:1.6;
   }
-  .fab-bar{
-    position:fixed;bottom:0;left:0;right:0;
-    display:flex;gap:10px;
+  .share-selection-bar{
+    position:fixed;bottom:0;left:0;right:0;z-index:40;
     padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));
-    background:linear-gradient(to top, var(--bg) 60%, rgba(246,247,245,0));
+    background:linear-gradient(to top, var(--bg) 65%, rgba(246,247,245,0));
   }
+  body.dark .share-selection-bar{background:linear-gradient(to top, var(--bg) 65%, rgba(21,25,27,0));}
+  body.has-share-bar{padding-bottom:84px;}
   .btn{
     flex:1;border:none;border-radius:var(--radius);
     padding:13px 14px;font-size:14.5px;font-weight:600;
@@ -379,7 +381,6 @@
   body.dark .notice-banner button{color:#E0C48C;}
   body.dark .cal-cell.muted{color:#3A4045;}
   body.dark .modal-backdrop{background:rgba(0,0,0,0.6);}
-  body.dark .fab-bar{background:linear-gradient(to top, var(--bg) 60%, rgba(21,25,27,0));}
 </style>
 </head>
 <body>
@@ -444,7 +445,7 @@
   <button type="button" id="toggleSelectMode" class="select-toggle-btn">☑ Auswählen</button>
 </div>
 <div id="listContainer"></div>
-<div id="shareSelectionBar" style="display:none;margin:8px 16px 0;">
+<div id="shareSelectionBar" class="share-selection-bar" style="display:none;">
   <button class="btn primary" id="btnShareSelected" style="width:100%;">Auswahl teilen</button>
 </div>
 
