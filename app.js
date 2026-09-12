@@ -2339,6 +2339,9 @@ const CHANGELOG = {
   'v53': [
     'Feiertag-Kennzeichnung vereinheitlicht: automatische Erkennung und manueller "Feiertag"-Typ nutzen jetzt dieselbe Farbe.',
   ],
+  'v54': [
+    'Neu: "📋 Änderungsverlauf"-Button in den Einstellungen – zeigt alle bisherigen Updates zum manuellen Nachschauen, falls der automatische Hinweis mal verpasst wurde.',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -2351,6 +2354,22 @@ function showChangelogModal(version, changes){
   document.getElementById('changelogList').innerHTML = changes.map(c => `<div style="margin-bottom:8px;">• ${escapeHtml(c)}</div>`).join('');
   changelogModal.classList.add('open');
 }
+
+function showFullChangelogModal(){
+  const versions = Object.keys(CHANGELOG).sort().reverse();
+  document.getElementById('changelogTitle').textContent = '📋 Änderungsverlauf';
+  document.getElementById('changelogList').innerHTML = versions.map(v => `
+    <div style="margin-bottom:14px;">
+      <div style="font-weight:700;color:var(--primary);margin-bottom:4px;">${escapeHtml(v)}</div>
+      ${CHANGELOG[v].map(c => `<div style="margin-bottom:4px;">• ${escapeHtml(c)}</div>`).join('')}
+    </div>
+  `).join('');
+  changelogModal.classList.add('open');
+}
+document.getElementById('btnShowChangelog').addEventListener('click', () => {
+  settingsModal.classList.remove('open');
+  showFullChangelogModal();
+});
 
 function checkChangelog(){
   let lastSeen = null;
@@ -2368,7 +2387,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v53'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v54'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 applyDarkMode();
 const logoImg = new Image();
