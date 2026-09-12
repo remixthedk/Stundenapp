@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stundenzettel-v38';
+const CACHE_NAME = 'stundenzettel-v39';
 const ASSETS = [
   './index.html',
   './app.js',
@@ -6,6 +6,8 @@ const ASSETS = [
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
+  './icon-192-maskable.png',
+  './icon-512-maskable.png',
   './logo.png',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',

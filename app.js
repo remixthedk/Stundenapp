@@ -295,13 +295,21 @@ function renderTodayStatus(){
   const ist = entry ? dayTotal(entry) : 0;
   const pct = Math.max(0, Math.min(100, Math.round((ist/soll)*100)));
 
-  el.style.display = 'block';
+  const R = 22, C = 2*Math.PI*R;
+  const offset = C - (pct/100)*C;
+  const isDark = document.body.classList.contains('dark');
+  const trackColor = isDark ? '#2C3236' : '#E7EAEC';
+
+  el.style.display = 'flex';
   el.innerHTML = `
-    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px;">
-      <span>Heute erfasst</span><span><b style="color:var(--text)">${fmtHours(ist)}</b> von ${fmtHours(soll)} Std</span>
-    </div>
-    <div style="background:var(--bg);border-radius:100px;height:6px;overflow:hidden;">
-      <div style="width:${pct}%;height:100%;background:var(--primary);border-radius:100px;"></div>
+    <svg width="56" height="56" viewBox="0 0 56 56" style="flex-shrink:0;transform:rotate(-90deg);">
+      <circle cx="28" cy="28" r="${R}" fill="none" stroke="${trackColor}" stroke-width="6"/>
+      <circle cx="28" cy="28" r="${R}" fill="none" stroke="var(--primary)" stroke-width="6"
+        stroke-dasharray="${C}" stroke-dashoffset="${offset}" stroke-linecap="round"/>
+    </svg>
+    <div style="margin-left:14px;">
+      <div style="font-size:12px;color:var(--muted);">Heute erfasst</div>
+      <div style="font-size:15px;margin-top:2px;"><b style="color:var(--text)">${fmtHours(ist)}</b> von ${fmtHours(soll)} Std <span style="color:var(--primary);font-weight:700;">(${pct}%)</span></div>
     </div>
   `;
 }
@@ -2065,8 +2073,53 @@ document.querySelectorAll('.settings-group-head').forEach(btn => {
   });
 });
 
+/* ===== Onboarding (nur beim ersten Start) ===== */
+const ONBOARDING_SLIDES = [
+  { icon:'👋', title:'Willkommen!', text:'Dein digitaler Stundenzettel für John Haustechnik. Alle Daten bleiben nur auf deinem Handy.' },
+  { icon:'📅', title:'Tage erfassen', text:'Einfach im Kalender oben auf einen Tag tippen – Arbeit, Urlaub, Krankheit, Schule oder Überstundenabbau eintragen.' },
+  { icon:'💾', title:'Nicht vergessen', text:'Erstelle ab und zu eine Sicherung in den Einstellungen (⚙) – sonst sind deine Daten bei Handy-Verlust unwiederbringlich weg.' },
+];
+let onboardingIdx = 0;
+
+function renderOnboardingSlide(){
+  const s = ONBOARDING_SLIDES[onboardingIdx];
+  document.getElementById('onboardingSlides').innerHTML = `
+    <div style="font-size:56px;margin-bottom:18px;">${s.icon}</div>
+    <div style="font-size:19px;font-weight:700;color:var(--text);margin-bottom:10px;">${s.title}</div>
+    <div style="font-size:14px;color:var(--muted);line-height:1.6;max-width:300px;">${s.text}</div>
+  `;
+  document.getElementById('onboardingDots').innerHTML = ONBOARDING_SLIDES.map((_,i) =>
+    `<span class="onboarding-dot ${i===onboardingIdx?'active':''}"></span>`
+  ).join('');
+  document.getElementById('onboardingNext').textContent = (onboardingIdx === ONBOARDING_SLIDES.length-1) ? 'Los geht\'s' : 'Weiter';
+}
+
+function closeOnboarding(){
+  document.getElementById('onboarding').style.display = 'none';
+  try{ localStorage.setItem('sz_onboarding_done', '1'); }catch(e){}
+}
+
+document.getElementById('onboardingNext').addEventListener('click', () => {
+  if(onboardingIdx === ONBOARDING_SLIDES.length-1){
+    closeOnboarding();
+  } else {
+    onboardingIdx++;
+    renderOnboardingSlide();
+  }
+});
+document.getElementById('onboardingSkip').addEventListener('click', closeOnboarding);
+
+function checkOnboarding(){
+  let done = false;
+  try{ done = localStorage.getItem('sz_onboarding_done') === '1'; }catch(e){}
+  if(!done){
+    renderOnboardingSlide();
+    document.getElementById('onboarding').style.display = 'flex';
+  }
+}
+
 /* ===== Init ===== */
-const APP_VERSION = 'v38'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v39'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 applyDarkMode();
 const logoImg = new Image();
@@ -2074,6 +2127,7 @@ logoImg.src = 'logo.png';
 
 render();
 checkAppLock();
+checkOnboarding();
 
 // App-Verknüpfung "Heute erfassen" (Homescreen-Shortcut)
 const urlParams = new URLSearchParams(window.location.search);
