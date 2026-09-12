@@ -1023,6 +1023,7 @@ function simpleHash(str){
 }
 
 function openSettings(){
+  initExportUI();
   document.getElementById('setName').value = settings.name;
   document.getElementById('setStreet').value = settings.street;
   document.getElementById('setCity').value = settings.city;
@@ -1380,30 +1381,6 @@ analyticsModal.addEventListener('click', (e) => { if(e.target === analyticsModal
 document.getElementById('prevYear').addEventListener('click', () => { analyticsYear--; renderAnalytics(); });
 document.getElementById('nextYear').addEventListener('click', () => { analyticsYear++; renderAnalytics(); });
 
-document.getElementById('btnExportYearPdf').addEventListener('click', async () => {
-  const yearDays = days
-    .filter(d => fromISODate(d.date).getFullYear() === analyticsYear)
-    .sort((a,b)=> a.date.localeCompare(b.date));
-  if(yearDays.length === 0){ toast('Keine Einträge in diesem Jahr'); return; }
-  if(!settings.name){ toast('Bitte zuerst Name eintragen'); return; }
-
-
-  await generateStundenzettelPDF(yearDays, settings, viewDate, logoImg, !isMobileDevice, `Jahr-${analyticsYear}`);
-  analyticsModal.classList.remove('open');
-});
-
-document.getElementById('btnExportYearPdfCompact').addEventListener('click', async () => {
-  const yearDays = days
-    .filter(d => fromISODate(d.date).getFullYear() === analyticsYear)
-    .sort((a,b)=> a.date.localeCompare(b.date));
-  if(yearDays.length === 0){ toast('Keine Einträge in diesem Jahr'); return; }
-  if(!settings.name){ toast('Bitte zuerst Name eintragen'); return; }
-
-
-  await generateStundenzettelPDFCompact(yearDays, settings, viewDate, logoImg, !isMobileDevice, `Jahr-${analyticsYear}`);
-  analyticsModal.classList.remove('open');
-});
-
 function computeUrlaubCarryIn(year){
   if(days.length === 0) return 0;
   const allYears = days.map(d => fromISODate(d.date).getFullYear());
@@ -1688,42 +1665,165 @@ function buildExportRows(monthDays){
   return rows;
 }
 
-document.getElementById('btnExportCsv').addEventListener('click', () => {
-  const monthDays = currentMonthDays();
-  if(monthDays.length === 0){ toast('Keine Einträge in diesem Monat'); return; }
+const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+  || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPad meldet sich seit iPadOS 13 wie ein Mac
 
+/* ===== Export: zentrale Format/Zeitraum-Auswahl ===== */
+function loadExportPrefs(){
+  try{
+    const raw = localStorage.getItem('sz_export_prefs');
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){ return {}; }
+}
+let exportPrefs = Object.assign({format:'pdf-standard', period:'current', otherMonth:'', customFrom:'', customTo:''}, loadExportPrefs());
+function saveExportPrefs(){ try{ localStorage.setItem('sz_export_prefs', JSON.stringify(exportPrefs)); }catch(e){} }
+
+function getMonthsWithData(){
+  const set = new Set();
+  days.forEach(d => {
+    const dt = fromISODate(d.date);
+    set.add(`${dt.getFullYear()}-${pad(dt.getMonth()+1)}`);
+  });
+  return Array.from(set).sort().reverse();
+}
+
+function resolveExportPeriod(prefs){
+  const type = prefs.period;
+  let filtered = [], label = '', fileLabel = '';
+  if(type === 'current'){
+    const y=viewDate.getFullYear(), m=viewDate.getMonth();
+    filtered = days.filter(d=>{const dt=fromISODate(d.date);return dt.getFullYear()===y&&dt.getMonth()===m;});
+    label = `${MONTHS[m]} ${y}`; fileLabel = `${MONTHS[m]}-${y}`;
+  } else if(type === 'lastMonth'){
+    const d0 = new Date(viewDate.getFullYear(), viewDate.getMonth()-1, 1);
+    const y=d0.getFullYear(), m=d0.getMonth();
+    filtered = days.filter(d=>{const dt=fromISODate(d.date);return dt.getFullYear()===y&&dt.getMonth()===m;});
+    label = `${MONTHS[m]} ${y}`; fileLabel = `${MONTHS[m]}-${y}`;
+  } else if(type === 'thisYear'){
+    const y = viewDate.getFullYear();
+    filtered = days.filter(d=>fromISODate(d.date).getFullYear()===y);
+    label = `Jahr ${y}`; fileLabel = `Jahr-${y}`;
+  } else if(type === 'otherMonth'){
+    if(!prefs.otherMonth) return null;
+    const [yy,mm] = prefs.otherMonth.split('-').map(Number);
+    filtered = days.filter(d=>{const dt=fromISODate(d.date);return dt.getFullYear()===yy&&dt.getMonth()===(mm-1);});
+    label = `${MONTHS[mm-1]} ${yy}`; fileLabel = `${MONTHS[mm-1]}-${yy}`;
+  } else if(type === 'custom'){
+    if(!prefs.customFrom || !prefs.customTo) return null;
+    filtered = days.filter(d=> d.date >= prefs.customFrom && d.date <= prefs.customTo);
+    label = `${fmtDate(fromISODate(prefs.customFrom))} – ${fmtDate(fromISODate(prefs.customTo))}`;
+    fileLabel = `Zeitraum_${prefs.customFrom}_bis_${prefs.customTo}`;
+  } else {
+    return null;
+  }
+  filtered = filtered.slice().sort((a,b)=>a.date.localeCompare(b.date));
+  return {days:filtered, label, fileLabel};
+}
+
+const FORMAT_LABELS = {'pdf-standard':'PDF Standard','pdf-compact':'PDF Kompakt','csv':'CSV','excel':'Excel'};
+const PERIOD_LABELS = {'current':'Aktueller Monat','lastMonth':'Letzter Monat','thisYear':'Dieses Jahr','otherMonth':'Anderer Monat','custom':'Eigener Zeitraum'};
+
+function updateExportSummary(){
+  const resolved = resolveExportPeriod(exportPrefs);
+  document.getElementById('exportSummary').textContent =
+    `→ ${FORMAT_LABELS[exportPrefs.format]}, ${resolved ? resolved.label : PERIOD_LABELS[exportPrefs.period]}`;
+
+  const preview = document.getElementById('exportPreview');
+  if(!resolved){
+    preview.textContent = 'Bitte Zeitraum vollständig auswählen.';
+    return;
+  }
+  if(resolved.days.length === 0){
+    preview.textContent = 'Keine Einträge in diesem Zeitraum.';
+    return;
+  }
+  const totalStd = resolved.days.reduce((s,d)=>s+dayTotal(d),0);
+  const urlaubCount = resolved.days.filter(d=>d.type==='urlaub').length;
+  preview.textContent = `${resolved.days.length} Tage, ${fmtHours(totalStd)} Std, davon ${urlaubCount} Urlaub`;
+}
+
+function initExportUI(){
+  document.querySelectorAll('[data-format]').forEach(t => t.classList.toggle('active', t.dataset.format===exportPrefs.format));
+  document.querySelectorAll('[data-period]').forEach(t => t.classList.toggle('active', t.dataset.period===exportPrefs.period));
+
+  const monthSelect = document.getElementById('exportOtherMonthSelect');
+  const months = getMonthsWithData();
+  monthSelect.innerHTML = months.map(ym => {
+    const [y,m] = ym.split('-').map(Number);
+    return `<option value="${ym}">${MONTHS[m-1]} ${y}</option>`;
+  }).join('');
+  if(exportPrefs.otherMonth && months.includes(exportPrefs.otherMonth)){
+    monthSelect.value = exportPrefs.otherMonth;
+  } else if(months.length){
+    exportPrefs.otherMonth = months[0];
+    monthSelect.value = months[0];
+  }
+
+  document.getElementById('exportCustomFrom').value = exportPrefs.customFrom || '';
+  document.getElementById('exportCustomTo').value = exportPrefs.customTo || '';
+
+  document.getElementById('exportOtherMonthField').style.display = exportPrefs.period==='otherMonth' ? 'block' : 'none';
+  document.getElementById('exportCustomFields').style.display = exportPrefs.period==='custom' ? 'block' : 'none';
+
+  updateExportSummary();
+}
+
+document.querySelectorAll('[data-format]').forEach(tab => {
+  tab.addEventListener('click', () => {
+    exportPrefs.format = tab.dataset.format;
+    saveExportPrefs();
+    initExportUI();
+  });
+});
+document.querySelectorAll('[data-period]').forEach(tab => {
+  tab.addEventListener('click', () => {
+    exportPrefs.period = tab.dataset.period;
+    saveExportPrefs();
+    initExportUI();
+  });
+});
+document.getElementById('exportOtherMonthSelect').addEventListener('change', (e) => {
+  exportPrefs.otherMonth = e.target.value;
+  saveExportPrefs();
+  updateExportSummary();
+});
+document.getElementById('exportCustomFrom').addEventListener('change', (e) => {
+  exportPrefs.customFrom = e.target.value;
+  saveExportPrefs();
+  updateExportSummary();
+});
+document.getElementById('exportCustomTo').addEventListener('change', (e) => {
+  exportPrefs.customTo = e.target.value;
+  saveExportPrefs();
+  updateExportSummary();
+});
+
+function doExportCsv(daysArr, fileLabel){
   const sanitizeCsvCell = (val) => {
     let s = String(val);
     if(/^[=+\-@\t\r]/.test(s)) s = "'" + s; // CSV/Excel-Formel-Einschleusung verhindern
     return s;
   };
-
-  const rows = buildExportRows(monthDays).map(r => r.map((cell,i) =>
+  const rows = buildExportRows(daysArr).map(r => r.map((cell,i) =>
     (i === 6 && typeof cell === 'number') ? fmtHours(cell) : cell
   ));
-
   const csv = rows.map(r => r.map(cell => {
     const s = sanitizeCsvCell(cell).replace(/"/g,'""');
     return /[;"\n]/.test(s) ? `"${s}"` : s;
   }).join(';')).join('\r\n');
-
-  const fname = `Stundenzettel_${(settings.name||'').replace(/\s+/g,'-')}_${MONTHS[viewDate.getMonth()]}-${viewDate.getFullYear()}.csv`;
+  const fname = `Stundenzettel_${(settings.name||'').replace(/\s+/g,'-')}_${fileLabel}.csv`;
   const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = fname;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  settingsModal.classList.remove('open');
   toast('CSV heruntergeladen');
-});
+}
 
-document.getElementById('btnExportXlsx').addEventListener('click', () => {
-  const monthDays = currentMonthDays();
-  if(monthDays.length === 0){ toast('Keine Einträge in diesem Monat'); return; }
+function doExportExcel(daysArr, fileLabel){
   if(typeof XLSX === 'undefined'){ toast('Excel-Export gerade nicht verfügbar (kein Internet beim ersten Laden?)'); return; }
-
-  const rows = buildExportRows(monthDays).map(r => r.map(cell => {
+  const rows = buildExportRows(daysArr).map(r => r.map(cell => {
     if(typeof cell === 'string' && /^[=+\-@\t\r]/.test(cell)) return "'" + cell;
     return cell;
   }));
@@ -1731,23 +1831,47 @@ document.getElementById('btnExportXlsx').addEventListener('click', () => {
   ws['!cols'] = [{wch:11},{wch:11},{wch:5},{wch:12},{wch:20},{wch:28},{wch:9},{wch:12},{wch:14}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Stundenzettel');
-
-  const fname = `Stundenzettel_${(settings.name||'').replace(/\s+/g,'-')}_${MONTHS[viewDate.getMonth()]}-${viewDate.getFullYear()}.xlsx`;
+  const fname = `Stundenzettel_${(settings.name||'').replace(/\s+/g,'-')}_${fileLabel}.xlsx`;
   XLSX.writeFile(wb, fname);
-  settingsModal.classList.remove('open');
   toast('Excel-Datei heruntergeladen');
-});
+}
 
-const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-  || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPad meldet sich seit iPadOS 13 wie ein Mac
+/* ===== Export-Verlauf (ohne gespeicherte Datei, wird bei Bedarf neu erzeugt) ===== */
+function loadExportHistory(){
+  try{
+    const raw = localStorage.getItem('sz_export_history');
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){ return []; }
+}
+function saveExportHistory(list){
+  try{ localStorage.setItem('sz_export_history', JSON.stringify(list.slice(0,5))); }catch(e){}
+}
+function logExportHistory(format, label, prefsSnapshot){
+  const entry = { timestamp: new Date().toISOString(), format, label, prefs: {...prefsSnapshot} };
+  saveExportHistory([entry, ...loadExportHistory()]);
+}
 
-document.getElementById('btnExport').addEventListener('click', async () => {
-  const monthDays = currentMonthDays();
-  if(monthDays.length === 0){ toast('Keine Einträge in diesem Monat'); return; }
+async function runExportForEntry(entry){
+  const resolved = resolveExportPeriod(entry.prefs);
+  if(!resolved || resolved.days.length === 0){ toast('Keine Daten mehr für diesen Zeitraum vorhanden'); return; }
+  if(entry.format === 'csv') doExportCsv(resolved.days, resolved.fileLabel);
+  else if(entry.format === 'excel') doExportExcel(resolved.days, resolved.fileLabel);
+  else if(entry.format === 'pdf-standard') await generateStundenzettelPDF(resolved.days, settings, viewDate, logoImg, !isMobileDevice, resolved.fileLabel);
+  else if(entry.format === 'pdf-compact') await generateStundenzettelPDFCompact(resolved.days, settings, viewDate, logoImg, !isMobileDevice, resolved.fileLabel);
+}
+
+document.getElementById('btnDoExport').addEventListener('click', async () => {
+  const resolved = resolveExportPeriod(exportPrefs);
+  if(!resolved){ toast('Bitte Zeitraum vollständig auswählen'); return; }
+  if(resolved.days.length === 0){ toast('Keine Einträge in diesem Zeitraum'); return; }
   if(!settings.name){ toast('Bitte zuerst Name eintragen'); return; }
 
+  if(exportPrefs.format === 'csv') doExportCsv(resolved.days, resolved.fileLabel);
+  else if(exportPrefs.format === 'excel') doExportExcel(resolved.days, resolved.fileLabel);
+  else if(exportPrefs.format === 'pdf-standard') await generateStundenzettelPDF(resolved.days, settings, viewDate, logoImg, !isMobileDevice, resolved.fileLabel);
+  else if(exportPrefs.format === 'pdf-compact') await generateStundenzettelPDFCompact(resolved.days, settings, viewDate, logoImg, !isMobileDevice, resolved.fileLabel);
 
-  await generateStundenzettelPDF(monthDays, settings, viewDate, logoImg, !isMobileDevice);
+  logExportHistory(exportPrefs.format, resolved.label, exportPrefs);
   settingsModal.classList.remove('open');
 });
 
@@ -1959,6 +2083,7 @@ let historyUrls = [];
 
 document.getElementById('btnShareHistory').addEventListener('click', () => {
   renderShareHistoryList();
+  renderExportHistoryList();
   settingsModal.classList.remove('open');
   shareHistoryModal.classList.add('open');
 });
@@ -2009,6 +2134,36 @@ function renderShareHistoryList(){
 const shareResultModal = document.getElementById('shareResultModal');
 document.getElementById('closeShareResult').addEventListener('click', () => shareResultModal.classList.remove('open'));
 shareResultModal.addEventListener('click', (e) => { if(e.target === shareResultModal) shareResultModal.classList.remove('open'); });
+
+function renderExportHistoryList(){
+  const history = loadExportHistory();
+  const list = document.getElementById('exportHistoryList');
+  if(history.length === 0){
+    list.innerHTML = `<div class="settings-hint">Noch keine Exporte.</div>`;
+    return;
+  }
+  list.innerHTML = history.map((h, idx) => {
+    const dt = new Date(h.timestamp);
+    const timeStr = `${dt.toLocaleDateString('de-DE')} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+    return `<div class="share-history-row">
+      <div class="info">
+        <div class="d">${FORMAT_LABELS[h.format]||h.format} <span class="zulage-badge" style="background:#F0ECE3;color:var(--accent-heiz);">${h.label}</span></div>
+        <div class="s">Exportiert am ${timeStr}</div>
+      </div>
+      <button type="button" data-idx="${idx}" class="history-redo">Laden</button>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.history-redo').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const h = history[parseInt(btn.dataset.idx)];
+      const original = btn.textContent;
+      btn.textContent = '...';
+      await runExportForEntry(h);
+      btn.textContent = original;
+    });
+  });
+}
 
 /* ===== Geteilte Tage importieren ===== */
 const shareImportModal = document.getElementById('shareImportModal');
@@ -2154,7 +2309,7 @@ function checkOnboarding(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v41'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v42'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 applyDarkMode();
 const logoImg = new Image();

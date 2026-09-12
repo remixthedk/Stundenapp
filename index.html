@@ -506,13 +506,51 @@
         <span>📤 Export</span><span class="chev">▾</span>
       </button>
       <div class="settings-group-body">
-        <div class="modal-actions">
-          <button class="btn secondary" id="btnExportCsv" style="flex:1">CSV exportieren</button>
-          <button class="btn secondary" id="btnExportXlsx" style="flex:1">Excel exportieren</button>
+        <label style="margin-top:0;">Format</label>
+        <div class="type-tabs" id="exportFormatTabs">
+          <div class="type-tab active" data-format="pdf-standard">PDF Standard</div>
+          <div class="type-tab" data-format="pdf-compact">PDF Kompakt</div>
+          <div class="type-tab" data-format="csv">CSV</div>
+          <div class="type-tab" data-format="excel">Excel</div>
         </div>
-        <div class="modal-actions">
-          <button class="btn secondary" id="btnExport" style="flex:1">PDF exportieren</button>
+
+        <label>Zeitraum</label>
+        <div class="type-tabs" id="exportPeriodTabs" style="grid-template-columns:repeat(2,1fr);">
+          <div class="type-tab active" data-period="current">Aktueller Monat</div>
+          <div class="type-tab" data-period="lastMonth">Letzter Monat</div>
+          <div class="type-tab" data-period="thisYear">Dieses Jahr</div>
+          <div class="type-tab" data-period="otherMonth">Anderer Monat</div>
         </div>
+        <div class="type-tabs" style="grid-template-columns:1fr;margin-top:6px;">
+          <div class="type-tab" data-period="custom">Eigener Zeitraum</div>
+        </div>
+
+        <div id="exportOtherMonthField" style="display:none;margin-top:10px;">
+          <select id="exportOtherMonthSelect"></select>
+        </div>
+        <div id="exportCustomFields" style="display:none;margin-top:10px;">
+          <div class="row-2">
+            <div><input type="date" id="exportCustomFrom"></div>
+            <div><input type="date" id="exportCustomTo"></div>
+          </div>
+        </div>
+
+        <div class="settings-hint" id="exportSummary" style="margin-top:14px;"></div>
+        <div class="settings-hint" id="exportPreview" style="margin-top:4px;font-weight:600;color:var(--text);"></div>
+
+        <div class="modal-actions" style="margin-top:12px;">
+          <button class="btn primary" id="btnDoExport" style="flex:1">Exportieren</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Zuletzt geteilt / exportiert -->
+    <div class="settings-group">
+      <button type="button" class="settings-group-head">
+        <span>🕓 Zuletzt geteilt</span><span class="chev">▾</span>
+      </button>
+      <div class="settings-group-body">
+        <button type="button" class="btn secondary" id="btnShareHistory" style="width:100%;">Verlauf ansehen</button>
       </div>
     </div>
 
@@ -641,10 +679,6 @@
         <input type="file" id="sharedFileInput" accept="application/json" style="display:none;">
         <hr class="sep">
         <div class="modal-actions">
-          <button class="btn secondary" id="btnShareHistory" style="flex:1">🕓 Zuletzt geteilt</button>
-        </div>
-        <hr class="sep">
-        <div class="modal-actions">
           <button class="btn secondary" id="btnShowQr" style="flex:1">📱 QR-Code zur Installation</button>
         </div>
       </div>
@@ -747,10 +781,7 @@
       <button id="nextYear">›</button>
     </div>
 
-    <div class="modal-actions" style="margin:0 0 16px;">
-      <button class="btn secondary" id="btnExportYearPdf" style="flex:1">Jahr als PDF (Standard)</button>
-      <button class="btn secondary" id="btnExportYearPdfCompact" style="flex:1">Jahr als PDF (kompakt)</button>
-    </div>
+    <div class="settings-hint" style="margin:0 0 16px;text-align:center;">Für den PDF/CSV/Excel-Export dieses Jahres: Einstellungen → Export → Zeitraum "Dieses Jahr".</div>
 
     <div id="yearDashboard" style="margin:0 0 18px;"></div>
 
@@ -788,8 +819,18 @@
       <h2>Zuletzt geteilt</h2>
       <button id="closeShareHistory">✕</button>
     </div>
-    <div class="settings-hint" style="margin-top:0;margin-bottom:14px;">Die letzten 5 Exporte – auch wenn die ursprüngliche Datei nicht mehr auffindbar ist, kannst du sie hier erneut herunterladen.</div>
-    <div id="shareHistoryList"></div>
+
+    <div class="year-section">
+      <div class="year-section-head">💾 Sicherungen &amp; geteilte Tage</div>
+      <div class="settings-hint" style="margin-top:0;margin-bottom:12px;">Enthält die Datei selbst – funktioniert auch offline, unverändert vom Zeitpunkt des Exports.</div>
+      <div id="shareHistoryList"></div>
+    </div>
+
+    <div class="year-section" style="border-bottom:none;margin-bottom:0;padding-bottom:0;">
+      <div class="year-section-head">📤 PDF/CSV/Excel-Exporte</div>
+      <div class="settings-hint" style="margin-top:0;margin-bottom:12px;">Wird beim Laden frisch mit den aktuellen Daten neu erzeugt.</div>
+      <div id="exportHistoryList"></div>
+    </div>
   </div>
 </div>
 
