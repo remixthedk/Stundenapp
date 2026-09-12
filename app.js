@@ -2329,6 +2329,10 @@ const CHANGELOG = {
   'v50': [
     'Neu: "Feiertag" als eigener, wählbarer Tagestyp neben Urlaub/Krankheit/Schule/Abbau – erscheint jetzt auch im PDF/CSV/Excel-Export.',
   ],
+  'v51': [
+    'PDF-Design komplett überarbeitet: schlichte, sachliche Tabellenoptik statt bunter Karten – bessere Lesbarkeit und leichter nachzuvollziehen.',
+    'Neu: große Monats-/Zeitraum-Überschrift oben auf jeder PDF-Seite.',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -2358,7 +2362,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v50'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v51'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 applyDarkMode();
 const logoImg = new Image();
