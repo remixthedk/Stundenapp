@@ -2309,7 +2309,7 @@ function checkOnboarding(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v43'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v44'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 applyDarkMode();
 const logoImg = new Image();
