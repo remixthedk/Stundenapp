@@ -1764,12 +1764,15 @@ function attachDownloadFeedback(linkEl, label){
 }
 
 /* ===== Service worker ===== */
+let swRegistration = null;
 if('serviceWorker' in navigator){
   const hadControllerAtLoad = !!navigator.serviceWorker.controller;
   let updateBannerShown = false;
 
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => { swRegistration = reg; })
+      .catch(()=>{});
   });
 
   navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -1780,6 +1783,20 @@ if('serviceWorker' in navigator){
     }
   });
 }
+
+document.getElementById('btnCheckUpdate').addEventListener('click', async () => {
+  if(!swRegistration){ toast('Update-Prüfung gerade nicht möglich'); return; }
+  toast('🔍 Suche nach Updates...');
+  let foundUpdate = false;
+  const onUpdateFound = () => { foundUpdate = true; };
+  swRegistration.addEventListener('updatefound', onUpdateFound);
+  try{ await swRegistration.update(); }catch(e){ /* Offline o.ä. */ }
+  setTimeout(() => {
+    swRegistration.removeEventListener('updatefound', onUpdateFound);
+    // Falls ein Update gefunden wurde, übernimmt der bestehende Banner-Mechanismus (controllerchange) automatisch.
+    if(!foundUpdate) toast('✓ Du hast bereits die neueste Version');
+  }, 2500);
+});
 
 function showUpdateBanner(){
   const el = document.createElement('div');
@@ -2119,7 +2136,7 @@ function checkOnboarding(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v39'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v40'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 applyDarkMode();
 const logoImg = new Image();
