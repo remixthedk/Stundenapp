@@ -1287,6 +1287,18 @@ document.getElementById('btnBackupExport').addEventListener('click', async () =>
   const fname = `Stundenzettel-Sicherung_${settings.name ? settings.name.replace(/\s+/g,'-')+'_' : ''}${toISODate(new Date())}.json`;
   const blob = new Blob([json], {type:'application/json'});
 
+  const sortedDates = days.map(d=>d.date).sort();
+  const historyEntry = {
+    timestamp: new Date().toISOString(),
+    fname,
+    type: 'full',
+    dayCount: days.length,
+    firstDate: sortedDates[0] || null,
+    lastDate: sortedDates[sortedDates.length-1] || null,
+    json
+  };
+  saveShareHistory([historyEntry, ...loadShareHistory()].slice(0,5));
+
   try{
     const file = new File([blob], fname, {type:'application/json'});
     if(navigator.canShare && navigator.canShare({files:[file]})){
@@ -1893,7 +1905,7 @@ document.getElementById('btnShareSelected').addEventListener('click', () => {
   // Duplikat-Warnung: gleiche Auswahl vor kurzem schon exportiert?
   const history = loadShareHistory();
   const recentDup = history.find(h =>
-    h.firstDate === first && h.lastDate === last && h.dayCount === selectedDays.length &&
+    h.type === 'partial' && h.firstDate === first && h.lastDate === last && h.dayCount === selectedDays.length &&
     (Date.now() - new Date(h.timestamp).getTime()) < 5*60*1000
   );
   if(recentDup){
@@ -1926,7 +1938,7 @@ document.getElementById('btnShareSelected').addEventListener('click', () => {
   // Im Verlauf ablegen (neueste zuerst, max. 5)
   const newHistory = [{
     timestamp: now.toISOString(),
-    fname, firstDate: first, lastDate: last,
+    fname, type: 'partial', firstDate: first, lastDate: last,
     dayCount: selectedDays.length, json
   }, ...history].slice(0,5);
   saveShareHistory(newHistory);
@@ -1965,12 +1977,18 @@ function renderShareHistoryList(){
   }
   list.innerHTML = history.map((h, idx) => {
     const dt = new Date(h.timestamp);
-    const dateStr = `${fmtDate(fromISODate(h.firstDate))}${h.firstDate!==h.lastDate ? ' – '+fmtDate(fromISODate(h.lastDate)) : ''}`;
+    const isFull = h.type === 'full';
+    const dateStr = h.firstDate
+      ? `${fmtDate(fromISODate(h.firstDate))}${h.firstDate!==h.lastDate ? ' – '+fmtDate(fromISODate(h.lastDate)) : ''}`
+      : 'keine Einträge';
     const timeStr = `${dt.toLocaleDateString('de-DE')} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+    const typeBadge = isFull
+      ? `<span class="zulage-badge" style="background:#E5E9F2;color:#2A4B7C;">Komplettsicherung</span>`
+      : `<span class="zulage-badge" style="background:#E7EEF2;color:var(--primary);">Zeitraum</span>`;
     return `<div class="share-history-row">
       <div class="info">
-        <div class="d">${h.dayCount} Tag(e) · ${dateStr}</div>
-        <div class="s">Exportiert am ${timeStr}</div>
+        <div class="d">${h.dayCount} Tag(e) ${typeBadge}</div>
+        <div class="s">${dateStr} · Exportiert am ${timeStr}</div>
       </div>
       <a data-idx="${idx}" class="history-redownload" download>Laden</a>
     </div>`;
@@ -2136,7 +2154,7 @@ function checkOnboarding(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v40'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v41'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 applyDarkMode();
 const logoImg = new Image();
