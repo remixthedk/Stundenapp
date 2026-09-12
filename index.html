@@ -101,6 +101,7 @@
   .cal-cell.type-krankheit{background:var(--danger);}
   .cal-cell.type-schule{background:#4B5EAA;}
   .cal-cell.type-abbau{background:var(--accent-heiz);}
+  .cal-cell.type-feiertag{background:#B8860B;}
   .cal-cell.holiday:not(.has-entry){box-shadow:inset 0 0 0 1.5px #C9622A;}
   .cal-cell.holiday::after{
     content:'';position:absolute;top:3px;right:3px;width:5px;height:5px;
@@ -113,6 +114,7 @@
   .cal-legend .dot.krankheit{background:var(--danger);}
   .cal-legend .dot.schule{background:#4B5EAA;}
   .cal-legend .dot.abbau{background:var(--accent-heiz);}
+  .cal-legend .dot.feiertag{background:#B8860B;}
   .kw-toggle{
     background:none;border:1px solid var(--border);border-radius:8px;
     font-size:10.5px;font-weight:600;color:var(--primary);
@@ -156,6 +158,7 @@
   .badge.krankheit{background:#F5E6E1;color:var(--danger);}
   .badge.schule{background:#E6E9F2;color:#4B5EAA;}
   .badge.abbau{background:#EFE6D8;color:var(--accent-heiz);}
+  .badge.feiertag{background:#F2E9D2;color:#B8860B;}
   .item-line{
     display:flex;justify-content:space-between;
     font-size:13px;color:var(--muted);
@@ -414,6 +417,7 @@
   body.dark .badge.krankheit{background:#3A2621;color:#E08B72;}
   body.dark .badge.schule{background:#242B45;color:#8C9EE8;}
   body.dark .badge.abbau{background:#3A2E1E;color:#E0A96F;}
+  body.dark .badge.feiertag{background:#3A320F;color:#D4B25C;}
   body.dark .notice-banner{background:#3A2E1E;border-color:#5C4826;color:#E0C48C;}
   body.dark .notice-banner button{color:#E0C48C;}
   body.dark .cal-cell.muted{color:#3A4045;}
@@ -488,6 +492,7 @@
     <span><i class="dot krankheit"></i>Krankheit</span>
     <span><i class="dot schule"></i>Schule</span>
     <span><i class="dot abbau"></i>Abbau</span>
+    <span><i class="dot feiertag"></i>Feiertag</span>
     <span>🟠 Feiertag</span>
   </div>
 </div>
@@ -730,6 +735,7 @@
       <div class="type-tab" data-type="urlaub">Urlaub</div>
       <div class="type-tab" data-type="krankheit">Krankheit</div>
       <div class="type-tab" data-type="schule">Schule</div>
+      <div class="type-tab" data-type="feiertag">Feiertag</div>
       <div class="type-tab" data-type="abbau">Abbau</div>
     </div>
 
@@ -1087,6 +1093,7 @@
       <div class="type-tab" data-type="urlaub">Urlaub</div>
       <div class="type-tab" data-type="krankheit">Krank</div>
       <div class="type-tab" data-type="schule">Schule</div>
+      <div class="type-tab" data-type="feiertag">Feiertag</div>
       <div class="type-tab" data-type="abbau">Abbau</div>
     </div>
 

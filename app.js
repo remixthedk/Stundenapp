@@ -161,7 +161,7 @@ function dayTotal(day){
   return 0; // urlaub, krankheit, schule
 }
 
-const VALID_DAY_TYPES = ['work','urlaub','krankheit','schule','abbau'];
+const VALID_DAY_TYPES = ['work','urlaub','krankheit','schule','feiertag','abbau'];
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 // Prüft und bereinigt importierte Tages-Datensätze (aus Sicherung oder geteilter Datei).
@@ -577,8 +577,8 @@ function render(){
           </div>
           ${it.notiz ? `<div class="item-notiz">📝 ${escapeHtml(it.notiz)} <span class="notiz-tag">nur intern</span></div>` : ''}`).join('');
       } else {
-        const labels = {urlaub:'Urlaub', krankheit:'Krankheit', schule:'Schule', abbau:'Überstundenabbau'};
-        const safeClass = ['urlaub','krankheit','schule','abbau'].includes(d.type) ? d.type : 'urlaub';
+        const labels = {urlaub:'Urlaub', krankheit:'Krankheit', schule:'Schule', feiertag:'Feiertag', abbau:'Überstundenabbau'};
+        const safeClass = ['urlaub','krankheit','schule','feiertag','abbau'].includes(d.type) ? d.type : 'urlaub';
         const label = labels[d.type] || escapeHtml(String(d.type));
         bodyHtml = `<span class="badge ${safeClass}">${label}</span>`;
       }
@@ -738,7 +738,7 @@ function setActiveType(type){
   document.querySelectorAll('.type-tab').forEach(t => t.classList.toggle('active', t.dataset.type===type));
   document.getElementById('workFields').style.display = type==='work' ? 'block' : 'none';
   document.getElementById('abbauFields').style.display = type==='abbau' ? 'block' : 'none';
-  const isRangeable = ['urlaub','krankheit','schule'].includes(type);
+  const isRangeable = ['urlaub','krankheit','schule','feiertag'].includes(type);
   document.getElementById('rangeFields').style.display = isRangeable ? 'block' : 'none';
   if(!isRangeable){
     document.getElementById('rangeToggle').checked = false;
@@ -911,7 +911,7 @@ document.getElementById('abbauStunden').addEventListener('input', updateDayTotal
 
 document.getElementById('saveDay').addEventListener('click', () => {
   const type = document.querySelector('.type-tab.active').dataset.type;
-  const isRangeable = ['urlaub','krankheit','schule'].includes(type);
+  const isRangeable = ['urlaub','krankheit','schule','feiertag'].includes(type);
   const rangeOn = isRangeable && document.getElementById('rangeToggle').checked;
 
   if(rangeOn){
@@ -928,7 +928,7 @@ document.getElementById('saveDay').addEventListener('click', () => {
     while(cur <= end){
       const dow = cur.getDay();
       if(dow >= 1 && dow <= 5){
-        if(isHoliday(cur)){
+        if(type !== 'feiertag' && isHoliday(cur)){
           skippedHolidays++;
         } else if(isMonthLocked(cur)){
           skippedLocked++;
@@ -1185,7 +1185,7 @@ function runSearch(){
   const words = rawQ.split(/\s+/).filter(Boolean);
   const dateFrom = document.getElementById('searchDateFrom').value;
   const dateTo = document.getElementById('searchDateTo').value;
-  const typeLabels = {urlaub:'Urlaub', krankheit:'Krankheit', schule:'Schule', abbau:'Überstundenabbau'};
+  const typeLabels = {urlaub:'Urlaub', krankheit:'Krankheit', schule:'Schule', feiertag:'Feiertag', abbau:'Überstundenabbau'};
 
   const hasFilters = words.length > 0 || dateFrom || dateTo || searchTypeFilter;
   if(!hasFilters){ resultsEl.innerHTML = ''; return; }
@@ -1668,7 +1668,7 @@ function buildExportRows(monthDays){
         rows.push([fmtDate(dt), WEEKDAYS[dt.getDay()], wk, 'Arbeit', it.kunde||'', it.taetigkeit||'', parseFloat(it.stunden)||0, it.nachtarbeit?'Ja':'', it.schmutzzulage?'Ja':'']);
       });
     } else {
-      const labels = {urlaub:'Urlaub', krankheit:'Krankheit', schule:'Schule', abbau:'Ueberstundenabbau'};
+      const labels = {urlaub:'Urlaub', krankheit:'Krankheit', schule:'Schule', feiertag:'Feiertag', abbau:'Ueberstundenabbau'};
       const label = labels[d.type] || d.type;
       rows.push([fmtDate(dt), WEEKDAYS[dt.getDay()], wk, label, '', '', dayTotal(d), '', '']);
     }
@@ -2220,7 +2220,7 @@ function renderShareImportList(sharedBy){
     ? `Geteilt von ${sharedBy}. Wähle aus, welche Tage übernommen werden sollen.`
     : 'Wähle aus, welche Tage übernommen werden sollen.';
 
-  const typeLabels = {work:'Arbeit', urlaub:'Urlaub', krankheit:'Krankheit', schule:'Schule', abbau:'Überstundenabbau'};
+  const typeLabels = {work:'Arbeit', urlaub:'Urlaub', krankheit:'Krankheit', schule:'Schule', feiertag:'Feiertag', abbau:'Überstundenabbau'};
   const list = document.getElementById('shareImportList');
   list.innerHTML = pendingSharedDays.map((d, idx) => {
     const dt = fromISODate(d.date);
@@ -2326,6 +2326,9 @@ const CHANGELOG = {
   'v49': [
     'Neu: Dieser "Was ist neu"-Hinweis selbst – erscheint ab jetzt automatisch nach jedem Update.',
   ],
+  'v50': [
+    'Neu: "Feiertag" als eigener, wählbarer Tagestyp neben Urlaub/Krankheit/Schule/Abbau – erscheint jetzt auch im PDF/CSV/Excel-Export.',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -2355,7 +2358,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v49'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v50'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 applyDarkMode();
 const logoImg = new Image();
