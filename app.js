@@ -2276,7 +2276,7 @@ document.querySelectorAll('.settings-group-head').forEach(btn => {
 
 /* ===== Onboarding (nur beim ersten Start) ===== */
 const ONBOARDING_SLIDES = [
-  { icon:'👋', title:'Willkommen!', text:'Dein digitaler Stundenzettel für John Haustechnik. Alle Daten bleiben nur auf deinem Handy.' },
+  { icon:'👋', title:'Willkommen!', text:'Dein digitaler Stundenzettel für John Haustechnik GmbH & Co KG – entwickelt von Marcus Lüschen. Alle Daten bleiben nur auf deinem Handy.' },
   { icon:'📅', title:'Tage erfassen', text:'Einfach im Kalender oben auf einen Tag tippen – Arbeit, Urlaub, Krankheit, Schule oder Überstundenabbau eintragen.' },
   { icon:'💾', title:'Nicht vergessen', text:'Erstelle ab und zu eine Sicherung in den Einstellungen (⚙) – sonst sind deine Daten bei Handy-Verlust unwiederbringlich weg.' },
   { icon:'❓', title:'Hilfe griffbereit', text:'Fragen? Unter ⚙ Einstellungen findest du oben den Button "❓ Hilfe" mit allen wichtigen Infos – jederzeit abrufbar.' },
@@ -2345,6 +2345,11 @@ const CHANGELOG = {
   'v55': [
     'PDF (Standard): dünne Linie unter jeder Zeile plus etwas mehr Zeilenabstand – leichter zu lesen, ohne in der Zeile zu verrutschen.',
   ],
+  'v56': [
+    'Neuer Bereich "Über diese App" in den Einstellungen (Firmenname, Entwickler-Credit).',
+    'Vollständiger Firmenname "John Haustechnik GmbH & Co KG" jetzt auch im PDF.',
+    'Kleines Extra: 5x auf die Versionsnummer tippen.',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -2390,8 +2395,19 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v55'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v56'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
+let versionTapCount = 0;
+let versionTapTimer;
+document.getElementById('appVersionLabel').addEventListener('click', () => {
+  versionTapCount++;
+  clearTimeout(versionTapTimer);
+  versionTapTimer = setTimeout(() => { versionTapCount = 0; }, 1500);
+  if(versionTapCount >= 5){
+    versionTapCount = 0;
+    toast('Made with ❤️ by Marcus Lüschen');
+  }
+});
 applyDarkMode();
 const logoImg = new Image();
 logoImg.src = 'logo.png';

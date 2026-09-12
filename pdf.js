@@ -1,6 +1,6 @@
 /* Generates a clean, table-based Stundenzettel PDF (sachlich, eine Akzentfarbe) */
 
-const COMPANY = { name: 'John Haustechnik', street: 'Friedrichsfehner Str. 8', city: '26188 Edewecht' };
+const COMPANY = { name: 'John Haustechnik GmbH & Co KG', street: 'Friedrichsfehner Str. 8', city: '26188 Edewecht' };
 const PDF_WEEKDAYS = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
 
 const PRIMARY = [27,75,102];
@@ -163,7 +163,7 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
       doc.addImage(logo.dataUrl, 'PNG', M, M, LOGO_W, logoH);
     } else {
       doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(...PRIMARY);
-      doc.text('John Haustechnik', M, M+5);
+      doc.text(COMPANY.name, M, M+5);
     }
     const logoBottomY = logo ? M + logoH + 3.5 : M + 9.5;
     doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
@@ -274,7 +274,9 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
 
     // ---- Fußzeile ----
     const fy = PH - M - 6;
-    doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(150,156,159);
+    doc.setFont('helvetica','normal'); doc.setFontSize(6); doc.setTextColor(190,193,190);
+    doc.text('App-Konzept: Marcus Lüschen', M, fy);
+    doc.setFontSize(7); doc.setTextColor(150,156,159);
     doc.text(`Seite ${pageNum}/${totalPages}`, PW/2, fy, {align:'center'});
     doc.setFontSize(6); doc.setTextColor(175,180,183);
     doc.text(`Erstellt am ${createdAtStr}`, M+contentW, fy, {align:'right'});
@@ -359,7 +361,7 @@ async function generateStundenzettelPDFCompact(monthDays, settings, viewDate, lo
       doc.addImage(logo.dataUrl, 'PNG', M, M, LOGO_W, logoH);
     } else {
       doc.setFont('helvetica','bold'); doc.setFontSize(11.5); doc.setTextColor(...PRIMARY);
-      doc.text('John Haustechnik', M, M+4.5);
+      doc.text(COMPANY.name, M, M+4.5);
     }
     const logoBottomY = logo ? M + logoH + 2.8 : M + 8.5;
     doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(...MUTED);
@@ -446,10 +448,11 @@ async function generateStundenzettelPDFCompact(monthDays, settings, viewDate, lo
     doc.text(`${pdfFmtHours(runningTotal)} Std`, M+contentW-4, y+1+BOTTOMBAR_H/2+1.2, {align:'right'});
 
     const fy = PH - M - 6;
-    if(hasZulagen){
-      doc.setFont('helvetica','normal'); doc.setFontSize(6); doc.setTextColor(...MUTED);
-      doc.text('(N) = Nachtarbeit   (S) = Schmutzzulage', M, fy);
-    }
+    doc.setFont('helvetica','normal'); doc.setFontSize(6); doc.setTextColor(190,193,190);
+    const creditText = hasZulagen
+      ? '(N) = Nachtarbeit   (S) = Schmutzzulage   ·   App-Konzept: Marcus Lüschen'
+      : 'App-Konzept: Marcus Lüschen';
+    doc.text(creditText, M, fy);
     doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(150,156,159);
     doc.text(`Seite ${pageNum}/${totalPages}`, M+contentW/2, fy, {align:'center'});
     doc.setFontSize(6); doc.setTextColor(175,180,183);
