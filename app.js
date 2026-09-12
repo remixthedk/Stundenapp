@@ -2320,8 +2320,42 @@ function checkOnboarding(){
   }
 }
 
+/* ===== Changelog: "Was ist neu" nach Updates ===== */
+// Hier bei jedem Update eine neue Zeile ergänzen (Version → Liste der Änderungen).
+const CHANGELOG = {
+  'v49': [
+    'Neu: Dieser "Was ist neu"-Hinweis selbst – erscheint ab jetzt automatisch nach jedem Update.',
+  ],
+};
+
+const changelogModal = document.getElementById('changelogModal');
+document.getElementById('closeChangelog').addEventListener('click', () => changelogModal.classList.remove('open'));
+document.getElementById('changelogOkBtn').addEventListener('click', () => changelogModal.classList.remove('open'));
+changelogModal.addEventListener('click', (e) => { if(e.target === changelogModal) changelogModal.classList.remove('open'); });
+
+function showChangelogModal(version, changes){
+  document.getElementById('changelogTitle').textContent = `🆕 Was ist neu in ${version}`;
+  document.getElementById('changelogList').innerHTML = changes.map(c => `<div style="margin-bottom:8px;">• ${escapeHtml(c)}</div>`).join('');
+  changelogModal.classList.add('open');
+}
+
+function checkChangelog(){
+  let lastSeen = null;
+  try{ lastSeen = localStorage.getItem('sz_last_seen_version'); }catch(e){}
+
+  if(lastSeen === null){
+    // Erster Start überhaupt – nichts anzeigen, nur den aktuellen Stand merken
+    try{ localStorage.setItem('sz_last_seen_version', APP_VERSION); }catch(e){}
+    return;
+  }
+  if(lastSeen !== APP_VERSION && CHANGELOG[APP_VERSION]){
+    showChangelogModal(APP_VERSION, CHANGELOG[APP_VERSION]);
+  }
+  try{ localStorage.setItem('sz_last_seen_version', APP_VERSION); }catch(e){}
+}
+
 /* ===== Init ===== */
-const APP_VERSION = 'v47'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v49'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 applyDarkMode();
 const logoImg = new Image();
@@ -2330,6 +2364,7 @@ logoImg.src = 'logo.png';
 render();
 checkAppLock();
 checkOnboarding();
+checkChangelog();
 
 // App-Verknüpfung "Heute erfassen" (Homescreen-Shortcut)
 const urlParams = new URLSearchParams(window.location.search);
