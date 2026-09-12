@@ -245,6 +245,10 @@
   .share-howto-step{font-size:12.5px;line-height:1.5;color:var(--text);margin-bottom:6px;}
   .share-howto-step:last-child{margin-bottom:0;}
   .share-howto-step b{color:var(--primary);}
+  .help-btn-row{
+    display:flex;align-items:flex-start;gap:12px;margin-bottom:10px;font-size:13px;line-height:1.5;
+  }
+  .help-btn-row span{flex-shrink:0;width:28px;text-align:center;font-size:15px;}
   .download-confirmed{background:var(--accent-klima) !important;transition:background 0.2s;}
   .onboarding-dot{width:7px;height:7px;border-radius:50%;background:var(--border);}
   .onboarding-dot.active{background:var(--primary);}
@@ -506,6 +510,8 @@
       <h2>Einstellungen</h2>
       <button id="closeSettings">✕</button>
     </div>
+
+    <button type="button" class="btn secondary" id="btnOpenHelp" style="width:100%;margin-bottom:14px;">❓ Hilfe</button>
 
     <!-- Export -->
     <div class="settings-group open">
@@ -869,6 +875,164 @@
     <div id="shareImportList" style="margin:12px 0;"></div>
     <div class="modal-actions">
       <button class="btn primary" id="confirmShareImport" style="flex:1">Auswahl übernehmen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Help Modal -->
+<div class="modal-backdrop" id="helpModal">
+  <div class="modal-sheet">
+    <div class="modal-head">
+      <h2>❓ Hilfe</h2>
+      <button id="closeHelp">✕</button>
+    </div>
+
+    <div class="settings-group open">
+      <button type="button" class="settings-group-head">
+        <span>🚀 Erste Schritte</span><span class="chev">▾</span>
+      </button>
+      <div class="settings-group-body">
+        <p style="font-size:13px;line-height:1.6;margin:0 0 10px;">
+          <b>1. Profil ausfüllen</b><br>
+          Unter ⚙ Einstellungen → Profil: Name, Adresse und Jahresurlaubstage eintragen.
+          Dein Name erscheint dann oben im Kopfbereich und auf jedem PDF.
+        </p>
+        <p style="font-size:13px;line-height:1.6;margin:0 0 10px;">
+          <b>2. Arbeitszeiten einstellen</b><br>
+          Unter ⚙ Einstellungen → Arbeitszeiten: deine übliche Arbeitszeit Mo–Do und Fr
+          hinterlegen. Wird beim Erfassen automatisch vorausgefüllt, bleibt aber pro Tag änderbar.
+        </p>
+        <p style="font-size:13px;line-height:1.6;margin:0;">
+          <b>3. Loslegen</b><br>
+          Einfach im Kalender oben auf einen Tag tippen – fertig.
+        </p>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <button type="button" class="settings-group-head">
+        <span>📅 Tage erfassen</span><span class="chev">▾</span>
+      </button>
+      <div class="settings-group-body">
+        <p style="font-size:13px;line-height:1.6;margin:0 0 10px;">
+          Tag im Kalender antippen → Formular öffnet sich. Oben die <b>Art</b> wählen:
+        </p>
+        <p style="font-size:13px;line-height:1.6;margin:0 0 10px;">
+          <b>Arbeit</b> – Kunde, Tätigkeit und Stunden eintragen, beliebig viele Einträge pro Tag.<br>
+          <b>Urlaub / Krankheit / Schule</b> – einfach den Tag markieren, zählt automatisch 0 Std.<br>
+          <b>Überstundenabbau</b> – Stunden eintragen (negativ für Abbau, z.B. -5).
+        </p>
+        <p style="font-size:13px;line-height:1.6;margin:0;">
+          <b>Mehrere Tage auf einmal:</b> Bei Urlaub/Krankheit/Schule den Schalter "Zeitraum"
+          aktivieren und Von–Bis wählen – legt automatisch alle Werktage an (Wochenenden und
+          Feiertage werden übersprungen).
+        </p>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <button type="button" class="settings-group-head">
+        <span>🔘 Die wichtigsten Buttons erklärt</span><span class="chev">▾</span>
+      </button>
+      <div class="settings-group-body">
+        <div class="help-btn-row"><span>📊</span><div>Jahresübersicht – Urlaubskonto, Diagramme, Top-Kunden</div></div>
+        <div class="help-btn-row"><span>🔍</span><div>Suche über alle Monate hinweg</div></div>
+        <div class="help-btn-row"><span>⚙</span><div>Einstellungen (Profil, Export, Sicherheit, Hilfe ...)</div></div>
+        <div class="help-btn-row"><span>🔓 / 🔒</span><div>Monat abschließen bzw. wieder entsperren</div></div>
+        <div class="help-btn-row"><span>☑</span><div>"Auswählen" – mehrere Tage markieren, um sie zu teilen</div></div>
+        <div class="help-btn-row"><span>🌙 / 🧹</span><div>Nachtarbeit / Schmutzzulage kennzeichnen (wird im PDF markiert)</div></div>
+        <div class="help-btn-row"><span>📝</span><div>Notiz – nur in der App sichtbar, erscheint nicht im PDF/CSV/Excel</div></div>
+        <div class="help-btn-row" style="margin-bottom:0;"><span>↻</span><div>"Letzten Arbeitstag übernehmen" – kopiert den letzten Arbeitstag als Vorlage</div></div>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <button type="button" class="settings-group-head">
+        <span>🔒 Datensicherheit – die wichtigsten Regeln</span><span class="chev">▾</span>
+      </button>
+      <div class="settings-group-body">
+        <p style="font-size:13px;line-height:1.6;margin:0 0 10px;">
+          <b>Deine Daten liegen nur auf diesem Handy</b> – nirgendwo in einer Cloud, auf keinem
+          Server. Niemand sonst kann sie sehen.
+        </p>
+        <p style="font-size:13px;line-height:1.6;margin:0 0 10px;">
+          <b>Immer denselben Browser nutzen</b> (z.B. immer Chrome). Jeder Browser hat seinen
+          eigenen, getrennten Speicher – wechselst du z.B. von Chrome zu Samsung Internet, siehst
+          du dort keine deiner bisherigen Daten, als würdest du bei Null anfangen.
+        </p>
+        <p style="font-size:13px;line-height:1.6;margin:0 0 10px;">
+          <b>Regelmäßig Sicherungen erstellen</b> (⚙ → Datensicherung → "Sicherung erstellen") –
+          Faustregel: einmal im Monat, am besten direkt nach dem PDF-Export. Das ist der einzige
+          Schutz bei Handy-Verlust oder -Defekt.
+        </p>
+        <p style="font-size:13px;line-height:1.6;margin:0 0 10px;">
+          <b>iPhone/iPad-Nutzer:</b> Safari kann bei sehr langer Nichtnutzung (mehrere Wochen)
+          lokale Daten von Websites automatisch löschen. Die App erinnert dich deshalb auf
+          iOS-Geräten schon nach 10 statt 30 Tagen an ein Backup.
+        </p>
+        <p style="font-size:13px;line-height:1.6;margin:0;">
+          <b>PIN vergessen?</b> Falls die App-Sperre aktiv ist und du den Code vergisst: auf dem
+          Sperrbildschirm auf "PIN vergessen?" tippen – setzt nur die Sperre zurück, deine
+          Stundendaten bleiben dabei vollständig erhalten.
+        </p>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <button type="button" class="settings-group-head">
+        <span>📤 Export &amp; Weitergabe</span><span class="chev">▾</span>
+      </button>
+      <div class="settings-group-body">
+        <p style="font-size:13px;line-height:1.6;margin:0 0 10px;">
+          Unter ⚙ → Export: Format (PDF Standard/Kompakt, CSV, Excel) und Zeitraum wählen,
+          dann "Exportieren". <b>PDF Standard</b> für den normalen Monatsbeleg, <b>PDF Kompakt</b>
+          für lange Zeiträume wie ein ganzes Jahr, <b>CSV/Excel</b> für die Weiterverarbeitung
+          am Computer.
+        </p>
+        <p style="font-size:13px;line-height:1.6;margin:0;">
+          <b>Einzelne Tage mit Kollegen teilen:</b> Auf der Hauptseite "☑ Auswählen" antippen,
+          gewünschte Tage anhaken (funktioniert auch über mehrere Monate hinweg), dann
+          "Auswahl teilen" → Datei herunterladen → per WhatsApp/Mail weitergeben. Der Kollege
+          importiert sie über ⚙ → "Geteilte Tage importieren".
+        </p>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <button type="button" class="settings-group-head">
+        <span>🔐 Monat abschließen</span><span class="chev">▾</span>
+      </button>
+      <div class="settings-group-body">
+        <p style="font-size:13px;line-height:1.6;margin:0;">
+          Über den 🔓/🔒-Button neben der Monatsanzeige lässt sich ein Monat sperren, sobald
+          er fertig erfasst und abgerechnet ist – schützt vor versehentlichen nachträglichen
+          Änderungen. Ein gesperrter Monat lässt sich weiterhin ansehen, aber nicht mehr
+          bearbeiten. Über denselben Button jederzeit wieder entsperrbar.
+        </p>
+      </div>
+    </div>
+
+    <div class="settings-group" style="margin-bottom:0;">
+      <button type="button" class="settings-group-head">
+        <span>💬 Häufige Fragen</span><span class="chev">▾</span>
+      </button>
+      <div class="settings-group-body">
+        <p style="font-size:13px;line-height:1.6;margin:0 0 10px;">
+          <b>Was passiert, wenn ich mein Handy verliere?</b><br>
+          Alle Daten sind auf dem Gerät gespeichert und damit weg – außer du hattest zuvor eine
+          Sicherung erstellt und extern gespeichert (siehe "Datensicherheit" oben).
+        </p>
+        <p style="font-size:13px;line-height:1.6;margin:0 0 10px;">
+          <b>Sehen andere meine Daten?</b><br>
+          Nein. Es gibt keinen Server, keine Cloud – niemand außer dir hat Zugriff, solange du
+          nichts aktiv teilst.
+        </p>
+        <p style="font-size:13px;line-height:1.6;margin:0;">
+          <b>Ich sehe ein Update nicht, obwohl es hochgeladen wurde – was tun?</b><br>
+          Die App neu öffnen (manchmal braucht's das zweite Mal). Falls das nicht hilft: unten
+          in den Einstellungen auf "🔄 Nach Update suchen" tippen.
+        </p>
+      </div>
     </div>
   </div>
 </div>

@@ -1244,6 +1244,15 @@ function runSearch(){
   });
 }
 
+/* ===== Hilfe ===== */
+const helpModal = document.getElementById('helpModal');
+document.getElementById('btnOpenHelp').addEventListener('click', () => {
+  settingsModal.classList.remove('open');
+  helpModal.classList.add('open');
+});
+document.getElementById('closeHelp').addEventListener('click', () => helpModal.classList.remove('open'));
+helpModal.addEventListener('click', (e) => { if(e.target === helpModal) helpModal.classList.remove('open'); });
+
 /* ===== QR-Code zur Installation ===== */
 const qrModal = document.getElementById('qrModal');
 document.getElementById('btnShowQr').addEventListener('click', () => {
@@ -2270,6 +2279,7 @@ const ONBOARDING_SLIDES = [
   { icon:'👋', title:'Willkommen!', text:'Dein digitaler Stundenzettel für John Haustechnik. Alle Daten bleiben nur auf deinem Handy.' },
   { icon:'📅', title:'Tage erfassen', text:'Einfach im Kalender oben auf einen Tag tippen – Arbeit, Urlaub, Krankheit, Schule oder Überstundenabbau eintragen.' },
   { icon:'💾', title:'Nicht vergessen', text:'Erstelle ab und zu eine Sicherung in den Einstellungen (⚙) – sonst sind deine Daten bei Handy-Verlust unwiederbringlich weg.' },
+  { icon:'❓', title:'Hilfe griffbereit', text:'Fragen? Unter ⚙ Einstellungen findest du oben den Button "❓ Hilfe" mit allen wichtigen Infos – jederzeit abrufbar.' },
 ];
 let onboardingIdx = 0;
 
@@ -2311,7 +2321,7 @@ function checkOnboarding(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v46'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v47'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 applyDarkMode();
 const logoImg = new Image();
