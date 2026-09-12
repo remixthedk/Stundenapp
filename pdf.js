@@ -39,11 +39,10 @@ function dayRows(day){
       const tags = [];
       if(it.nachtarbeit) tags.push('N');
       if(it.schmutzzulage) tags.push('S');
-      if(tags.length) desc += ` (${tags.join('/')})`;
-      return { desc, hours: parseFloat(it.stunden)||0, italic:false };
+      return { desc, hours: parseFloat(it.stunden)||0, italic:false, zuschlag: tags.join('/') };
     });
   }
-  return [{ desc: specialLabel(day), hours: dayTotalPdf(day), italic:true }];
+  return [{ desc: specialLabel(day), hours: dayTotalPdf(day), italic:true, zuschlag:'' }];
 }
 
 // Große Monats-/Zeitraum-Überschrift, passt sich automatisch an den gewählten Zeitraum an.
@@ -116,7 +115,8 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
 
   const PW = 210, PH = 297, M = 14;
   const contentW = PW - M*2;
-  const colDate = M, colKw = M + 26, colDesc = M + 40;
+  const colDate = M, colKw = M + 22, colDesc = M + 32;
+  const colZuschlagRight = M + contentW - 22;
 
   const HEADER_H = 33;
   const TABLEHEAD_H = 6;
@@ -199,12 +199,13 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
     doc.text('DATUM', colDate+2, y+4.2);
     doc.text('KW', colKw+1, y+4.2);
     doc.text('KUNDE / TÄTIGKEIT', colDesc, y+4.2);
+    doc.text('ZUSCHLAG', colZuschlagRight, y+4.2, {align:'right'});
     doc.text('STUNDEN', M+contentW-2, y+4.2, {align:'right'});
     y += TABLEHEAD_H;
 
     // ---- Tagesblöcke ----
     let stripeToggle = true;
-    const descMaxW = (M+contentW-2) - colDesc - 16;
+    const descMaxW = colZuschlagRight - 18 - colDesc - 2;
 
     pageDays.forEach(day => {
       const dt = new Date(day.date + 'T00:00:00');
@@ -231,7 +232,11 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
         doc.setFont('helvetica', row.italic ? 'italic' : 'normal');
         doc.setFontSize(8.3); doc.setTextColor(...TEXT_DARK);
         doc.text(truncateToWidth(doc, row.desc, descMaxW), colDesc, yy+3.6);
-        doc.setFont('helvetica','normal');
+        if(row.zuschlag){
+          doc.setFont('helvetica','bold'); doc.setTextColor(...PRIMARY);
+          doc.text(row.zuschlag, colZuschlagRight, yy+3.6, {align:'right'});
+        }
+        doc.setFont('helvetica','normal'); doc.setTextColor(...TEXT_DARK);
         doc.text(pdfFmtHours(row.hours), M+contentW-2, yy+3.6, {align:'right'});
         yy += ROW_H;
       });
@@ -400,16 +405,26 @@ async function generateStundenzettelPDFCompact(monthDays, settings, viewDate, lo
       doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...TEXT_DARK);
       doc.text(dateStr, M+4, y+3.6);
 
-      let detailText;
+      let detailText, zuschlagTag = '';
       if(day.type === 'work'){
-        detailText = dayRows(day).map(r => r.desc).join(', ');
+        const rows = dayRows(day);
+        detailText = rows.map(r => r.desc).join(', ');
+        const tags = new Set();
+        rows.forEach(r => { if(r.zuschlag) r.zuschlag.split('/').forEach(t => tags.add(t)); });
+        zuschlagTag = Array.from(tags).join('/');
       } else {
         detailText = specialLabel(day);
       }
+      const colZuschlagRight = M+contentW-22;
       const detailX = M+24;
-      const detailMaxW = contentW - 24 - 20;
+      const detailMaxW = colZuschlagRight - 14 - detailX;
       doc.setFont('helvetica','normal'); doc.setFontSize(7.2); doc.setTextColor(...MUTED);
       doc.text(truncateToWidth(doc, detailText, detailMaxW), detailX, y+3.6);
+
+      if(zuschlagTag){
+        doc.setFont('helvetica','bold'); doc.setFontSize(7.2); doc.setTextColor(...PRIMARY);
+        doc.text(zuschlagTag, colZuschlagRight, y+3.6, {align:'right'});
+      }
 
       doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...PRIMARY);
       doc.text(pdfFmtHours(dayTotalPdf(day)), M+contentW-2, y+3.6, {align:'right'});
