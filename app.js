@@ -1044,6 +1044,7 @@ function openSettings(){
   document.getElementById('setTileAbbau').checked = settings.tileAbbau !== false;
   document.getElementById('setTileKunden').checked = settings.tileKunden !== false;
   document.getElementById('setDarkMode').checked = !!settings.darkMode;
+  document.getElementById('setAutoSnapshot').checked = isAutoSnapshotEnabled();
   document.getElementById('setPinEnabled').checked = !!settings.pinEnabled;
   document.getElementById('setPinNew').value = '';
   document.getElementById('setPinConfirm').value = '';
@@ -1111,6 +1112,7 @@ document.getElementById('saveSettings').addEventListener('click', () => {
     pinEnabled, pinHash,
   };
   const saveOk = saveSettings(settings);
+  setAutoSnapshotEnabled(document.getElementById('setAutoSnapshot').checked);
   applyDarkMode();
   settingsModal.classList.remove('open');
   render();
@@ -2320,6 +2322,95 @@ function checkOnboarding(){
   }
 }
 
+/* ===== Automatische Notfall-Sicherheitskopien (alle 14 Tage, max. 3, mit Strukturprüfung) ===== */
+const SNAPSHOT_INTERVAL_DAYS = 14;
+const SNAPSHOT_MAX = 3;
+
+function isAutoSnapshotEnabled(){
+  try{
+    const v = localStorage.getItem('sz_auto_snapshot_enabled');
+    return v === null ? true : v === '1'; // Standard: aktiviert
+  }catch(e){ return true; }
+}
+function setAutoSnapshotEnabled(on){
+  try{ localStorage.setItem('sz_auto_snapshot_enabled', on ? '1' : '0'); }catch(e){}
+}
+function loadAutoSnapshots(){
+  try{
+    const raw = localStorage.getItem('sz_auto_snapshots');
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){ return []; }
+}
+function saveAutoSnapshots(list){
+  try{ localStorage.setItem('sz_auto_snapshots', JSON.stringify(list.slice(0,SNAPSHOT_MAX))); }catch(e){}
+}
+
+function checkAutoSnapshot(){
+  if(!isAutoSnapshotEnabled()) return;
+  const snapshots = loadAutoSnapshots();
+  const last = snapshots[0];
+  if(last && (Date.now() - new Date(last.timestamp).getTime()) < SNAPSHOT_INTERVAL_DAYS*24*60*60*1000){
+    return; // noch nicht fällig
+  }
+  // Strukturprüfung: nur bei sauberen Daten wird überhaupt ein neuer Snapshot angelegt.
+  // Schlägt sie fehl, bleibt der letzte gute Snapshot einfach unangetastet stehen.
+  const { valid, rejected } = sanitizeImportedDays(days);
+  if(rejected > 0) return;
+
+  const entry = {
+    timestamp: new Date().toISOString(),
+    dayCount: valid.length,
+    settings: {...settings},
+    days: valid
+  };
+  saveAutoSnapshots([entry, ...snapshots]);
+}
+
+const snapshotModal = document.getElementById('snapshotModal');
+document.getElementById('btnShowSnapshots').addEventListener('click', () => {
+  renderSnapshotList();
+  settingsModal.classList.remove('open');
+  snapshotModal.classList.add('open');
+});
+document.getElementById('closeSnapshotModal').addEventListener('click', () => snapshotModal.classList.remove('open'));
+snapshotModal.addEventListener('click', (e) => { if(e.target === snapshotModal) snapshotModal.classList.remove('open'); });
+
+function renderSnapshotList(){
+  const snapshots = loadAutoSnapshots();
+  const list = document.getElementById('snapshotList');
+  if(snapshots.length === 0){
+    list.innerHTML = `<div class="settings-hint">Noch keine Sicherheitskopie vorhanden (erste entsteht automatisch nach 14 Tagen Nutzung).</div>`;
+    return;
+  }
+  list.innerHTML = snapshots.map((s, idx) => {
+    const dt = new Date(s.timestamp);
+    const dateStr = `${dt.toLocaleDateString('de-DE')} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+    return `<div class="share-history-row">
+      <div class="info">
+        <div class="d">${dateStr}</div>
+        <div class="s">${s.dayCount} Tag(e) im Bestand</div>
+      </div>
+      <button type="button" data-idx="${idx}" class="history-redo">Wiederherstellen</button>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.history-redo').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const s = snapshots[parseInt(btn.dataset.idx)];
+      const dt = new Date(s.timestamp);
+      const ok = window.confirm(`Auf den Stand vom ${dt.toLocaleDateString('de-DE')} ${pad(dt.getHours())}:${pad(dt.getMinutes())} zurücksetzen (${s.dayCount} Tage)? Alles, was du seitdem eingetragen hast, geht dabei verloren.`);
+      if(!ok) return;
+      days = s.days;
+      settings = {...settings, ...s.settings};
+      saveDays(days);
+      saveSettings(settings);
+      snapshotModal.classList.remove('open');
+      render();
+      toast('Sicherheitskopie wiederhergestellt');
+    });
+  });
+}
+
 /* ===== Changelog: "Was ist neu" nach Updates ===== */
 // Hier bei jedem Update eine neue Zeile ergänzen (Version → Liste der Änderungen).
 const CHANGELOG = {
@@ -2349,6 +2440,9 @@ const CHANGELOG = {
     'Neuer Bereich "Über diese App" in den Einstellungen (Firmenname, Entwickler-Credit).',
     'Vollständiger Firmenname "John Haustechnik GmbH & Co KG" jetzt auch im PDF.',
     'Kleines Extra: 5x auf die Versionsnummer tippen.',
+  ],
+  'v57': [
+    'Neu: automatische Notfall-Sicherheitskopien alle 14 Tage im Hintergrund (in den Einstellungen unter Datensicherung, deaktivierbar) – ersetzt keine echte Sicherung, aber ein zusätzliches Netz gegen Programmfehler.',
   ],
 };
 
@@ -2395,7 +2489,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v56'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v57'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
@@ -2416,6 +2510,7 @@ render();
 checkAppLock();
 checkOnboarding();
 checkChangelog();
+checkAutoSnapshot();
 
 // App-Verknüpfung "Heute erfassen" (Homescreen-Shortcut)
 const urlParams = new URLSearchParams(window.location.search);
