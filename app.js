@@ -521,8 +521,8 @@ document.getElementById('toggleKW').textContent = showKW ? 'KW ausblenden' : 'KW
 function render(){
   document.getElementById('monthLabel').textContent = `${MONTHS[viewDate.getMonth()]} ${viewDate.getFullYear()}`;
   document.getElementById('employeeSubline').textContent = settings.name || 'Stundenzettel';
-  const addr = [settings.street, settings.city].filter(Boolean).join(' · ');
-  document.getElementById('employeeAddressLine').textContent = addr;
+  const addrLine = document.getElementById('employeeAddressLine');
+  addrLine.innerHTML = [settings.street, settings.city].filter(Boolean).map(escapeHtml).join('<br>');
 
   const y = viewDate.getFullYear(), m = viewDate.getMonth();
   const monthDays = days
@@ -2311,7 +2311,7 @@ function checkOnboarding(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v45'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v46'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 applyDarkMode();
 const logoImg = new Image();
