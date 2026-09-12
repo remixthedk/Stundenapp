@@ -2342,6 +2342,9 @@ const CHANGELOG = {
   'v54': [
     'Neu: "📋 Änderungsverlauf"-Button in den Einstellungen – zeigt alle bisherigen Updates zum manuellen Nachschauen, falls der automatische Hinweis mal verpasst wurde.',
   ],
+  'v55': [
+    'PDF (Standard): dünne Linie unter jeder Zeile plus etwas mehr Zeilenabstand – leichter zu lesen, ohne in der Zeile zu verrutschen.',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -2387,7 +2390,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v54'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v55'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 applyDarkMode();
 const logoImg = new Image();

@@ -121,7 +121,7 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
   const HEADER_H = 33;
   const TABLEHEAD_H = 6;
   const FOOTER_H = 10;
-  const ROW_H = 5;
+  const ROW_H = 5.7;
   const DAY_GAP = 3.2;
   const BOTTOMBAR_H = 9;
 
@@ -224,28 +224,32 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
       let yy = blockTop;
       const dateLabel = `${PDF_WEEKDAYS[dt.getDay()].slice(0,2)} ${pdfPad(dt.getDate())}.${pdfPad(dt.getMonth()+1)}.`;
       doc.setFont('helvetica','bold'); doc.setFontSize(8.3); doc.setTextColor(...TEXT_DARK);
-      doc.text(dateLabel, colDate+2.5, yy+3.6);
+      doc.text(dateLabel, colDate+2.5, yy+4.0);
       doc.setFont('helvetica','normal'); doc.setTextColor(...MUTED);
-      doc.text(String(wk), colKw+1, yy+3.6);
+      doc.text(String(wk), colKw+1, yy+4.0);
 
-      rows.forEach(row => {
+      rows.forEach((row, rIdx) => {
         doc.setFont('helvetica', row.italic ? 'italic' : 'normal');
         doc.setFontSize(8.3); doc.setTextColor(...TEXT_DARK);
-        doc.text(truncateToWidth(doc, row.desc, descMaxW), colDesc, yy+3.6);
+        doc.text(truncateToWidth(doc, row.desc, descMaxW), colDesc, yy+4.0);
         if(row.zuschlag){
           doc.setFont('helvetica','bold'); doc.setTextColor(...PRIMARY);
-          doc.text(row.zuschlag, colZuschlagRight, yy+3.6, {align:'right'});
+          doc.text(row.zuschlag, colZuschlagRight, yy+4.0, {align:'right'});
         }
         doc.setFont('helvetica','normal'); doc.setTextColor(...TEXT_DARK);
-        doc.text(pdfFmtHours(row.hours), M+contentW-2, yy+3.6, {align:'right'});
+        doc.text(pdfFmtHours(row.hours), M+contentW-2, yy+4.0, {align:'right'});
         yy += ROW_H;
+        if(rIdx < rows.length-1){
+          doc.setDrawColor(214,217,214); doc.setLineWidth(0.15);
+          doc.line(colDesc-2, yy-1.3, M+contentW-2, yy-1.3);
+        }
       });
 
       doc.setDrawColor(...PRIMARY); doc.setLineWidth(0.3);
       doc.line(colDesc-2, yy, M+contentW-2, yy);
       doc.setFont('helvetica','bold'); doc.setFontSize(8.3); doc.setTextColor(...PRIMARY);
-      doc.text(`Tagessumme ${dateLabel}`, colDesc, yy+3.6);
-      doc.text(pdfFmtHours(dayTotalPdf(day)), M+contentW-2, yy+3.6, {align:'right'});
+      doc.text(`Tagessumme ${dateLabel}`, colDesc, yy+4.0);
+      doc.text(pdfFmtHours(dayTotalPdf(day)), M+contentW-2, yy+4.0, {align:'right'});
 
       y = blockTop + blockH + DAY_GAP;
       runningTotal += dayTotalPdf(day);
