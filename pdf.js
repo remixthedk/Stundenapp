@@ -99,13 +99,13 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
   const createdAtStr = `${pdfFmtDate(createdAt)}, ${pdfPad(createdAt.getHours())}:${pdfPad(createdAt.getMinutes())} Uhr`;
 
   const logo = await loadImageAsDataURL(logoImgEl);
-  const LOGO_W = 20; // mm, dezent
+  const LOGO_W = 34; // mm, horizontales Logo mit Schriftzug
   const logoH = logo ? LOGO_W * logo.ratio : 0;
 
   const PW = 210, PH = 297, M = 14;
   const contentW = PW - M*2;
 
-  const HEADER_H = 26;
+  const HEADER_H = 28;
   const FOOTER_H = 10;
   const WEEKHEAD_H = 8;
   const CARD_GAP = 3;
@@ -154,29 +154,27 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
     const lastDate = new Date(pageDays[pageDays.length-1].date + 'T00:00:00');
 
     // ---- Header ----
-    doc.setFont('helvetica','bold'); doc.setFontSize(13);
-    doc.setTextColor(27,75,102);
-    doc.text('John Haustechnik', M, M+5);
+    if(logo){
+      doc.addImage(logo.dataUrl, 'PNG', M, M, LOGO_W, logoH);
+    } else {
+      doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(27,75,102);
+      doc.text('John Haustechnik', M, M+5);
+    }
+    const logoBottomY = logo ? M + logoH + 3.5 : M + 9.5;
     doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(120,128,133);
-    doc.text(`${COMPANY.street} · ${COMPANY.city}`, M, M+9.5);
-
-    const textRightX = logo ? (M+contentW-LOGO_W-4) : (M+contentW);
+    doc.text(`${COMPANY.street} · ${COMPANY.city}`, M, logoBottomY);
 
     doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(20,20,20);
-    doc.text(settings.name || '', textRightX, M+5, {align:'right'});
+    doc.text(settings.name || '', M+contentW, M+5, {align:'right'});
     doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(120,128,133);
     const addr = [settings.street, settings.city].filter(Boolean).join(' · ');
-    doc.text(addr, textRightX, M+9.5, {align:'right'});
-
-    if(logo){
-      doc.addImage(logo.dataUrl, 'PNG', M+contentW-LOGO_W, M, LOGO_W, logoH);
-    }
+    doc.text(addr, M+contentW, M+9.5, {align:'right'});
 
     doc.setDrawColor(27,75,102); doc.setLineWidth(0.6);
-    doc.line(M, M+16, M+contentW, M+16);
+    doc.line(M, M+19, M+contentW, M+19);
 
     doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(90,101,112);
-    doc.text(`Zeitraum: ${pdfFmtDate(firstDate)} – ${pdfFmtDate(lastDate)}`, M, M+21);
+    doc.text(`Zeitraum: ${pdfFmtDate(firstDate)} – ${pdfFmtDate(lastDate)}`, M, M+23.5);
     doc.setLineWidth(0.2);
 
     let y = M + HEADER_H;
@@ -307,12 +305,12 @@ async function generateStundenzettelPDFCompact(monthDays, settings, viewDate, lo
   const createdAtStr = `${pdfFmtDate(createdAt)}, ${pdfPad(createdAt.getHours())}:${pdfPad(createdAt.getMinutes())} Uhr`;
 
   const logo = await loadImageAsDataURL(logoImgEl);
-  const LOGO_W = 16;
+  const LOGO_W = 26;
   const logoH = logo ? LOGO_W * logo.ratio : 0;
 
   const PW = 210, PH = 297, M = 14;
   const contentW = PW - M*2;
-  const HEADER_H = 20;
+  const HEADER_H = 17;
   const FOOTER_H = 8;
   const WEEKHEAD_H = 5.5;
   const ROW_H = 5;
@@ -360,24 +358,23 @@ async function generateStundenzettelPDFCompact(monthDays, settings, viewDate, lo
     const firstDate = new Date(pageDays[0].date + 'T00:00:00');
     const lastDate = new Date(pageDays[pageDays.length-1].date + 'T00:00:00');
 
-    doc.setFont('helvetica','bold'); doc.setFontSize(11.5);
-    doc.setTextColor(27,75,102);
-    doc.text('John Haustechnik', M, M+4.5);
-    doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(120,128,133);
-    doc.text(`${COMPANY.street} · ${COMPANY.city}`, M, M+8.5);
-
-    const textRightX = logo ? (M+contentW-LOGO_W-4) : (M+contentW);
-    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(20,20,20);
-    doc.text(settings.name || '', textRightX, M+4.5, {align:'right'});
-    doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(120,128,133);
-    doc.text(`${pdfFmtDate(firstDate)} – ${pdfFmtDate(lastDate)} · Seite ${pageNum}/${totalPages}`, textRightX, M+8.5, {align:'right'});
-
     if(logo){
-      doc.addImage(logo.dataUrl, 'PNG', M+contentW-LOGO_W, M, LOGO_W, logoH);
+      doc.addImage(logo.dataUrl, 'PNG', M, M, LOGO_W, logoH);
+    } else {
+      doc.setFont('helvetica','bold'); doc.setFontSize(11.5); doc.setTextColor(27,75,102);
+      doc.text('John Haustechnik', M, M+4.5);
     }
+    const logoBottomY = logo ? M + logoH + 2.8 : M + 8.5;
+    doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(120,128,133);
+    doc.text(`${COMPANY.street} · ${COMPANY.city}`, M, logoBottomY);
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(20,20,20);
+    doc.text(settings.name || '', M+contentW, M+4.5, {align:'right'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(120,128,133);
+    doc.text(`${pdfFmtDate(firstDate)} – ${pdfFmtDate(lastDate)} · Seite ${pageNum}/${totalPages}`, M+contentW, M+8.5, {align:'right'});
 
     doc.setDrawColor(27,75,102); doc.setLineWidth(0.5);
-    doc.line(M, M+11.5, M+contentW, M+11.5);
+    doc.line(M, M+13.5, M+contentW, M+13.5);
 
     let y = M + HEADER_H;
     let lastWeek = null;
