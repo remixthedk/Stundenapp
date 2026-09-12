@@ -2336,6 +2336,9 @@ const CHANGELOG = {
   'v52': [
     'PDF: Nachtarbeit/Schmutzzulage jetzt als eigene, gut sichtbare Spalte statt kleinem Buchstaben im Fließtext.',
   ],
+  'v53': [
+    'Feiertag-Kennzeichnung vereinheitlicht: automatische Erkennung und manueller "Feiertag"-Typ nutzen jetzt dieselbe Farbe.',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -2365,7 +2368,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v52'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v53'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 applyDarkMode();
 const logoImg = new Image();
