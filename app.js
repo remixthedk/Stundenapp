@@ -4,7 +4,7 @@ function getSplashDurationMs(){
   const v = parseFloat(localStorage.getItem('sz_splash_duration_s'));
   return (!isNaN(v) && v >= 0) ? v*1000 : 500; // Standard: 0,5 Sekunden
 }
-function setSplashDurationMs(seconds){
+function setSplashDurationSeconds(seconds){
   try{ localStorage.setItem('sz_splash_duration_s', String(seconds)); }catch(e){}
 }
 const WEEKDAYS = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
@@ -914,12 +914,14 @@ hiddenMenuModal.addEventListener('click', (e) => { if(e.target === hiddenMenuMod
 document.getElementById('setAutoSnapshotHidden').addEventListener('change', (e) => {
   setAutoSnapshotEnabled(e.target.checked);
 });
-document.getElementById('setSplashDuration').addEventListener('change', (e) => {
-  let v = parseFloat(e.target.value);
+document.getElementById('btnSaveSplashDuration').addEventListener('click', () => {
+  const input = document.getElementById('setSplashDuration');
+  let v = parseFloat(input.value);
   if(isNaN(v) || v < 0) v = 0;
   if(v > 5) v = 5;
-  e.target.value = v.toFixed(1);
-  setSplashDurationMs(v);
+  input.value = v.toFixed(1);
+  setSplashDurationSeconds(v);
+  toast(`Splash-Dauer: ${v.toFixed(1)} Sekunden gespeichert`);
 });
 document.getElementById('btnShowSnapshotsHidden').addEventListener('click', () => {
   renderSnapshotList();
@@ -2889,7 +2891,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v69'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v70'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
