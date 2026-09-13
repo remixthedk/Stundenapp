@@ -2356,32 +2356,100 @@ document.querySelectorAll('.settings-group-head').forEach(btn => {
 
 /* ===== Onboarding (nur beim ersten Start) ===== */
 const ONBOARDING_SLIDES = [
-  { icon:'👋', title:'Willkommen!', text:'Dein digitaler Stundenzettel für John Haustechnik GmbH & Co KG – entwickelt von Marcus Lüschen. Alle Daten bleiben nur auf deinem Handy.' },
-  { icon:'📅', title:'Tage erfassen', text:'Einfach im Kalender oben auf einen Tag tippen – Arbeit, Urlaub, Krankheit, Schule oder Überstundenabbau eintragen.' },
-  { icon:'💾', title:'Nicht vergessen', text:'Erstelle ab und zu eine Sicherung in den Einstellungen (⚙) – sonst sind deine Daten bei Handy-Verlust unwiederbringlich weg.' },
-  { icon:'❓', title:'Hilfe griffbereit', text:'Fragen? Unter ⚙ Einstellungen findest du oben den Button "❓ Hilfe" mit allen wichtigen Infos – jederzeit abrufbar.' },
+  { type:'info', icon:'👋', title:'Willkommen!', text:'Dein digitaler Stundenzettel für John Haustechnik GmbH & Co KG – entwickelt von Marcus Lüschen. Alle Daten bleiben nur auf deinem Handy.' },
+  { type:'form', form:'profile', title:'Deine Daten', subtitle:'Erscheint auf jedem PDF-Export.' },
+  { type:'form', form:'worktimes', title:'Deine Arbeitszeiten', subtitle:'Werden beim Erfassen vorausgefüllt, bleiben pro Tag änderbar.' },
+  { type:'form', form:'balances', title:'Urlaub & Überstunden', subtitle:'Steigst du mitten im Jahr ein: hier deinen aktuellen Stand eintragen.' },
+  { type:'info', icon:'📅', title:'Tage erfassen', text:'Einfach im Kalender oben auf einen Tag tippen – Arbeit, Urlaub, Krankheit, Schule oder Überstundenabbau eintragen.' },
+  { type:'info', icon:'💾', title:'Nicht vergessen', text:'Erstelle ab und zu eine Sicherung in den Einstellungen (⚙) – sonst sind deine Daten bei Handy-Verlust unwiederbringlich weg.' },
+  { type:'info', icon:'❓', title:'Hilfe griffbereit', text:'Fragen? Unter ⚙ Einstellungen findest du oben den Button "❓ Hilfe" mit allen wichtigen Infos – jederzeit abrufbar.' },
 ];
 let onboardingIdx = 0;
 
+const ONBOARDING_FORM_FIELDS = {
+  profile: [
+    {id:'obName', label:'Name', type:'text', settingsKey:'name', placeholder:'Vor- und Nachname'},
+    {id:'obStreet', label:'Straße & Hausnummer', type:'text', settingsKey:'street', placeholder:'Straße 1'},
+    {id:'obCity', label:'PLZ & Ort', type:'text', settingsKey:'city', placeholder:'26xxx Ort'},
+  ],
+  worktimes: [
+    {id:'obMonThuStart', label:'Mo–Do Beginn', type:'time', settingsKey:'monThuStart'},
+    {id:'obMonThuEnd', label:'Mo–Do Ende', type:'time', settingsKey:'monThuEnd'},
+    {id:'obMonThuPause', label:'Mo–Do Pause (Minuten)', type:'number', settingsKey:'monThuPause'},
+    {id:'obFriStart', label:'Fr Beginn', type:'time', settingsKey:'friStart'},
+    {id:'obFriEnd', label:'Fr Ende', type:'time', settingsKey:'friEnd'},
+    {id:'obFriPause', label:'Fr Pause (Minuten)', type:'number', settingsKey:'friPause'},
+  ],
+  balances: [
+    {id:'obUrlaubstage', label:'Jahresurlaubstage', type:'number', settingsKey:'urlaubstage', placeholder:'z.B. 30'},
+    {id:'obUrlaubVorApp', label:'Urlaubstage schon genommen (dieses Jahr, vor App-Nutzung)', type:'number', settingsKey:'urlaubVorAppStart', placeholder:'0'},
+    {id:'obOvertimeStart', label:'Überstunden-Saldo beim Einstieg', type:'number', settingsKey:'overtimeStartBalance', placeholder:'0', step:'0.25'},
+  ],
+};
+
 function renderOnboardingSlide(){
   const s = ONBOARDING_SLIDES[onboardingIdx];
-  document.getElementById('onboardingSlides').innerHTML = `
-    <div style="font-size:56px;margin-bottom:18px;">${s.icon}</div>
-    <div style="font-size:19px;font-weight:700;color:var(--text);margin-bottom:10px;">${s.title}</div>
-    <div style="font-size:14px;color:var(--muted);line-height:1.6;max-width:300px;">${s.text}</div>
-  `;
+  const container = document.getElementById('onboardingSlides');
+
+  if(s.type === 'form'){
+    container.style.textAlign = 'left';
+    container.style.alignItems = 'stretch';
+    container.style.justifyContent = 'flex-start';
+    container.style.paddingTop = '20px';
+    const fields = ONBOARDING_FORM_FIELDS[s.form];
+    container.innerHTML = `
+      <div style="font-size:19px;font-weight:700;color:var(--text);margin-bottom:6px;">${s.title}</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:18px;">${s.subtitle}</div>
+      ${fields.map(f => `
+        <label style="margin-top:10px;">${f.label}</label>
+        <input type="${f.type}" id="${f.id}" ${f.placeholder?`placeholder="${f.placeholder}"`:''} ${f.step?`step="${f.step}"`:''}>
+      `).join('')}
+    `;
+    fields.forEach(f => {
+      const el = document.getElementById(f.id);
+      const val = settings[f.settingsKey];
+      el.value = (val !== undefined && val !== null) ? val : (DEFAULT_SETTINGS[f.settingsKey] ?? '');
+    });
+  } else {
+    container.style.textAlign = 'center';
+    container.style.alignItems = 'center';
+    container.style.justifyContent = 'center';
+    container.style.paddingTop = '0';
+    container.innerHTML = `
+      <div style="font-size:56px;margin-bottom:18px;">${s.icon}</div>
+      <div style="font-size:19px;font-weight:700;color:var(--text);margin-bottom:10px;">${s.title}</div>
+      <div style="font-size:14px;color:var(--muted);line-height:1.6;max-width:300px;">${s.text}</div>
+    `;
+  }
+
   document.getElementById('onboardingDots').innerHTML = ONBOARDING_SLIDES.map((_,i) =>
     `<span class="onboarding-dot ${i===onboardingIdx?'active':''}"></span>`
   ).join('');
   document.getElementById('onboardingNext').textContent = (onboardingIdx === ONBOARDING_SLIDES.length-1) ? 'Los geht\'s' : 'Weiter';
 }
 
+// Werte aus einem gerade angezeigten Formular-Screen in die Einstellungen übernehmen
+function collectOnboardingFormValues(){
+  const s = ONBOARDING_SLIDES[onboardingIdx];
+  if(s.type !== 'form') return;
+  const fields = ONBOARDING_FORM_FIELDS[s.form];
+  fields.forEach(f => {
+    const el = document.getElementById(f.id);
+    if(!el) return;
+    settings[f.settingsKey] = (f.type === 'number') ? (parseFloat(el.value)||0) : el.value.trim();
+  });
+  saveSettings(settings);
+}
+
 function closeOnboarding(){
+  collectOnboardingFormValues();
   document.getElementById('onboarding').style.display = 'none';
   try{ localStorage.setItem('sz_onboarding_done', '1'); }catch(e){}
+  render();
 }
 
 document.getElementById('onboardingNext').addEventListener('click', () => {
+  collectOnboardingFormValues();
   if(onboardingIdx === ONBOARDING_SLIDES.length-1){
     closeOnboarding();
   } else {
@@ -2531,6 +2599,9 @@ const CHANGELOG = {
   'v60': [
     'Neuer Schalter "Σ anzeigen/ausblenden" neben "KW anzeigen" – blendet die Wochensummen-Spalte im Kalender bei Bedarf aus.',
   ],
+  'v61': [
+    'Einführung beim ersten Start fragt jetzt aktiv alle wichtigen Daten ab: Name & Adresse, Arbeitszeiten, Jahresurlaubstage sowie die Startwerte für Urlaub/Überstunden beim Einstieg – kein Suchen mehr in den Einstellungen nötig.',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -2576,7 +2647,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v60'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v61'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
