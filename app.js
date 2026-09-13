@@ -223,6 +223,12 @@ function renderDashboard(monthDays){
     cards.push(`<div class="dash-card"><div class="v">${fmtHours(abbau)}</div><div class="l">ABBAU</div></div>`);
   }
 
+  if(settings.tileOvertime !== false){
+    const balance = computeOvertimeBalance(days); // laufendes Gesamtkonto über alle erfassten Tage
+    const sign = balance > 0 ? '+' : '';
+    cards.push(`<div class="dash-card"><div class="v">${sign}${fmtHours(balance)}</div><div class="l">ÜBERSTUNDEN</div></div>`);
+  }
+
   if(settings.tileKunden !== false){
     const kundenCount = countDistinctKunden(monthDays);
     cards.push(`<div class="dash-card"><div class="v">${kundenCount}</div><div class="l">KUNDEN</div></div>`);
@@ -420,6 +426,7 @@ function populateKundenDatalist(){
 
 /* ===== Rendering: calendar grid ===== */
 let showKW = localStorage.getItem('sz_show_kw') === '1';
+let showWeekSum = localStorage.getItem('sz_show_weeksum') !== '0'; // Standard: an
 let selectMode = false;
 let selectedDates = new Set();
 
@@ -434,7 +441,7 @@ function renderCalendar(monthDays){
   const daysInPrevMonth = new Date(y, m, 0).getDate();
   const todayISO = toISODate(new Date());
 
-  const cols = showKW ? '0.5fr repeat(7,1fr) 0.85fr' : 'repeat(7,1fr) 0.85fr';
+  const cols = (showKW ? '0.5fr ' : '') + 'repeat(7,1fr)' + (showWeekSum ? ' 0.85fr' : '');
   const grid = document.getElementById('calGrid');
   grid.innerHTML = '';
   grid.style.gridTemplateColumns = cols;
@@ -442,7 +449,8 @@ function renderCalendar(monthDays){
   const header = document.getElementById('calWeekdaysHeader');
   header.style.gridTemplateColumns = cols;
   header.innerHTML = (showKW ? '<span></span>' : '') +
-    '<span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span><span>Σ</span>';
+    '<span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span>' +
+    (showWeekSum ? '<span>Σ</span>' : '');
 
   // Flache Liste aller Zellen (führende/nachfolgende Monatsränder + echte Tage) aufbauen
   const cells = [];
@@ -500,12 +508,14 @@ function renderCalendar(monthDays){
       grid.appendChild(cell);
     });
 
-    const sumCell = document.createElement('div');
-    sumCell.className = 'cal-cell cal-weeksum';
-    sumCell.innerHTML = weekSum > 0
-      ? `<span class="hrs">${fmtHours(weekSum)}</span>`
-      : `<span class="hrs muted-sum">–</span>`;
-    grid.appendChild(sumCell);
+    if(showWeekSum){
+      const sumCell = document.createElement('div');
+      sumCell.className = 'cal-cell cal-weeksum';
+      sumCell.innerHTML = weekSum > 0
+        ? `<span class="hrs">${fmtHours(weekSum)}</span>`
+        : `<span class="hrs muted-sum">–</span>`;
+      grid.appendChild(sumCell);
+    }
   }
 }
 
@@ -516,6 +526,14 @@ document.getElementById('toggleKW').addEventListener('click', () => {
   render();
 });
 document.getElementById('toggleKW').textContent = showKW ? 'KW ausblenden' : 'KW anzeigen';
+
+document.getElementById('toggleWeekSum').addEventListener('click', () => {
+  showWeekSum = !showWeekSum;
+  localStorage.setItem('sz_show_weeksum', showWeekSum ? '1' : '0');
+  document.getElementById('toggleWeekSum').textContent = showWeekSum ? 'Σ ausblenden' : 'Σ anzeigen';
+  render();
+});
+document.getElementById('toggleWeekSum').textContent = showWeekSum ? 'Σ ausblenden' : 'Σ anzeigen';
 
 /* ===== Rendering: month list ===== */
 function render(){
@@ -641,6 +659,34 @@ function defaultTimesFor(dateObj){
   const dow = dateObj.getDay(); // 0 Sun .. 6 Sat
   if(dow === 5){ return {start:settings.friStart, end:settings.friEnd, pause:settings.friPause}; }
   return {start:settings.monThuStart, end:settings.monThuEnd, pause:settings.monThuPause};
+}
+
+// Soll-Stunden für einen Werktag anhand der hinterlegten Standard-Arbeitszeiten (Mo-Do bzw. Fr).
+// Wochenenden haben kein Soll, auch falls dort ausnahmsweise ein Arbeitstag erfasst wurde.
+function sollHoursForDate(dateObj){
+  const dow = dateObj.getDay();
+  if(dow === 0 || dow === 6) return 0;
+  const t = defaultTimesFor(dateObj);
+  if(!t.start || !t.end) return 0;
+  const [sh,sm] = t.start.split(':').map(Number);
+  const [eh,em] = t.end.split(':').map(Number);
+  const mins = (eh*60+em) - (sh*60+sm) - (parseFloat(t.pause)||0);
+  return Math.max(0, mins/60);
+}
+
+// Überstunden-Bilanz: Arbeitstage zählen mit Ist-minus-Soll, manuelle Abbau-Einträge fließen
+// direkt mit ein. Urlaub/Krankheit/Schule/Feiertag sowie Tage ohne Eintrag zählen nicht mit.
+function overtimeDiffForDay(d){
+  if(d.type === 'work'){
+    return dayTotal(d) - sollHoursForDate(fromISODate(d.date));
+  }
+  if(d.type === 'abbau'){
+    return dayTotal(d);
+  }
+  return 0;
+}
+function computeOvertimeBalance(daysList){
+  return (settings.overtimeStartBalance || 0) + daysList.reduce((sum,d) => sum + overtimeDiffForDay(d), 0);
 }
 
 function applyReadOnlyMode(readOnly){
@@ -1030,6 +1076,8 @@ function openSettings(){
   document.getElementById('setStreet').value = settings.street;
   document.getElementById('setCity').value = settings.city;
   document.getElementById('setUrlaubstage').value = settings.urlaubstage != null ? settings.urlaubstage : 30;
+  document.getElementById('setUrlaubVorApp').value = settings.urlaubVorAppStart || 0;
+  document.getElementById('setOvertimeStart').value = settings.overtimeStartBalance || 0;
   document.getElementById('setEmailRecipient').value = settings.emailRecipient || '';
   document.getElementById('setMonThuStart').value = settings.monThuStart;
   document.getElementById('setMonThuEnd').value = settings.monThuEnd;
@@ -1042,6 +1090,7 @@ function openSettings(){
   document.getElementById('setTileKrank').checked = settings.tileKrank !== false;
   document.getElementById('setTileSchule').checked = settings.tileSchule !== false;
   document.getElementById('setTileAbbau').checked = settings.tileAbbau !== false;
+  document.getElementById('setTileOvertime').checked = settings.tileOvertime !== false;
   document.getElementById('setTileKunden').checked = settings.tileKunden !== false;
   document.getElementById('setDarkMode').checked = !!settings.darkMode;
   document.getElementById('setAutoSnapshot').checked = isAutoSnapshotEnabled();
@@ -1088,6 +1137,9 @@ document.getElementById('saveSettings').addEventListener('click', () => {
 
   const urlaubstageRaw = parseFloat(document.getElementById('setUrlaubstage').value) || 0;
   if(urlaubstageRaw < 0){ toast('Jahresurlaubstage können nicht negativ sein'); return; }
+  const urlaubVorAppRaw = parseFloat(document.getElementById('setUrlaubVorApp').value) || 0;
+  if(urlaubVorAppRaw < 0){ toast('Bereits genommene Urlaubstage können nicht negativ sein'); return; }
+  const overtimeStartRaw = parseFloat(document.getElementById('setOvertimeStart').value) || 0;
 
   settings = {
     ...settings,
@@ -1095,6 +1147,8 @@ document.getElementById('saveSettings').addEventListener('click', () => {
     street: document.getElementById('setStreet').value.trim(),
     city: document.getElementById('setCity').value.trim(),
     urlaubstage: urlaubstageRaw,
+    urlaubVorAppStart: urlaubVorAppRaw,
+    overtimeStartBalance: overtimeStartRaw,
     emailRecipient: document.getElementById('setEmailRecipient').value.trim(),
     monThuStart: document.getElementById('setMonThuStart').value,
     monThuEnd: document.getElementById('setMonThuEnd').value,
@@ -1107,6 +1161,7 @@ document.getElementById('saveSettings').addEventListener('click', () => {
     tileKrank: document.getElementById('setTileKrank').checked,
     tileSchule: document.getElementById('setTileSchule').checked,
     tileAbbau: document.getElementById('setTileAbbau').checked,
+    tileOvertime: document.getElementById('setTileOvertime').checked,
     tileKunden: document.getElementById('setTileKunden').checked,
     darkMode: document.getElementById('setDarkMode').checked,
     pinEnabled, pinHash,
@@ -1394,13 +1449,17 @@ analyticsModal.addEventListener('click', (e) => { if(e.target === analyticsModal
 document.getElementById('prevYear').addEventListener('click', () => { analyticsYear--; renderAnalytics(); });
 document.getElementById('nextYear').addEventListener('click', () => { analyticsYear++; renderAnalytics(); });
 
+function firstDataYear(fallbackYear){
+  if(days.length === 0) return fallbackYear;
+  return Math.min(...days.map(d => fromISODate(d.date).getFullYear()));
+}
+
 function computeUrlaubCarryIn(year){
-  if(days.length === 0) return 0;
-  const allYears = days.map(d => fromISODate(d.date).getFullYear());
-  const minYear = Math.min(...allYears, year);
+  const minYear = firstDataYear(year);
   let carry = 0;
   for(let y = minYear; y < year; y++){
-    const genommen = days.filter(d => d.type==='urlaub' && fromISODate(d.date).getFullYear()===y).length;
+    let genommen = days.filter(d => d.type==='urlaub' && fromISODate(d.date).getFullYear()===y).length;
+    if(y === minYear) genommen += (settings.urlaubVorAppStart || 0);
     const effective = (settings.urlaubstage||0) + carry;
     carry = effective - genommen;
   }
@@ -1416,7 +1475,8 @@ function renderAnalytics(){
   const urlaubBasis = settings.urlaubstage || 0;
   const carryIn = computeUrlaubCarryIn(analyticsYear);
   const urlaubGesamt = urlaubBasis + carryIn;
-  const urlaubGenommen = yearDays.filter(d=>d.type==='urlaub').length;
+  const preAppGenommen = (analyticsYear === firstDataYear(analyticsYear)) ? (settings.urlaubVorAppStart || 0) : 0;
+  const urlaubGenommen = yearDays.filter(d=>d.type==='urlaub').length + preAppGenommen;
   const urlaubRest = urlaubGesamt - urlaubGenommen; // kann jetzt negativ sein (Vorgriff)
   const krankTage = yearDays.filter(d=>d.type==='krankheit').length;
   const schuleTage = yearDays.filter(d=>d.type==='schule').length;
@@ -1424,6 +1484,9 @@ function renderAnalytics(){
 
   const carryLine = carryIn !== 0
     ? `<div class="settings-hint" style="margin:6px 0 0;">Basis ${urlaubBasis} Tage ${carryIn > 0 ? '+' : '–'} ${Math.abs(carryIn)} Tag(e) ${carryIn > 0 ? 'Resturlaub' : 'Vorgriff'} aus Vorjahr(en) = ${urlaubGesamt} Tage gesamt</div>`
+    : '';
+  const preAppLine = preAppGenommen > 0
+    ? `<div class="settings-hint" style="margin:2px 0 0;">Davon ${preAppGenommen} Tag(e) bereits vor App-Nutzung genommen (in den Profil-Einstellungen hinterlegt)</div>`
     : '';
 
   document.getElementById('yearDashboard').innerHTML = `
@@ -1434,6 +1497,7 @@ function renderAnalytics(){
       <div class="dash-card"><div class="v" style="${urlaubRest < 0 ? 'color:var(--danger);' : ''}">${urlaubRest}</div><div class="l">ÜBRIG</div></div>
     </div>
     ${carryLine}
+    ${preAppLine}
     <div class="settings-hint" style="margin:14px 0 6px;">Sonstiges</div>
     <div class="dashboard" style="grid-template-columns:repeat(4,1fr);margin:0;">
       <div class="dash-card"><div class="v">${fmtHours(totalStd)}</div><div class="l">STD GESAMT</div></div>
@@ -1446,7 +1510,7 @@ function renderAnalytics(){
   renderYearComparison(yearDays, totalStd, urlaubGenommen, krankTage);
   renderMonthlyBarChart(yearDays);
   renderWeekdayChart(yearDays);
-  renderAbbauSaldoChart(yearDays);
+  renderAbbauSaldoChart();
   renderTopKunden(yearDays);
 
   const table = document.getElementById('yearTable');
@@ -1540,17 +1604,31 @@ function renderWeekdayChart(yearDays){
     `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">${bars}</svg>`;
 }
 
-function renderAbbauSaldoChart(yearDays){
-  const abbauDays = yearDays.filter(d => d.type === 'abbau').sort((a,b)=> a.date.localeCompare(b.date));
-  const container = document.getElementById('yearAbbauChart');
+function renderAbbauSaldoChart(){
+  // Laufender Gesamtsaldo über alle Jahre hinweg (wie ein Konto) – berücksichtigt Arbeitstage
+  // (Ist minus Soll) UND manuelle Abbau-Einträge. Nur die Punkte des angezeigten Jahres werden
+  // geplottet, der Startwert trägt aber den Saldo aus den Vorjahren korrekt fort.
+  const relevantDays = days
+    .filter(d => fromISODate(d.date).getFullYear() <= analyticsYear)
+    .sort((a,b)=> a.date.localeCompare(b.date));
 
-  if(abbauDays.length === 0){
-    container.innerHTML = `<div class="settings-hint">Keine Überstundenabbau-Einträge in diesem Jahr.</div>`;
+  const container = document.getElementById('yearAbbauChart');
+  if(relevantDays.length === 0){
+    container.innerHTML = `<div class="settings-hint">Noch keine Daten vorhanden.</div>`;
     return;
   }
 
-  let running = 0;
-  const points = abbauDays.map(d => { running += dayTotal(d); return running; });
+  let running = settings.overtimeStartBalance || 0;
+  const points = [];
+  relevantDays.forEach(d => {
+    running += overtimeDiffForDay(d);
+    if(fromISODate(d.date).getFullYear() === analyticsYear) points.push(running);
+  });
+
+  if(points.length === 0){
+    container.innerHTML = `<div class="settings-hint">Keine Arbeits- oder Abbau-Einträge in diesem Jahr.</div>`;
+    return;
+  }
   const min = Math.min(0, ...points);
   const max = Math.max(0, ...points);
   const range = (max - min) || 1;
@@ -1573,7 +1651,7 @@ function renderAbbauSaldoChart(yearDays){
       <path d="${path}" fill="none" stroke="${lineColor}" stroke-width="1.8"/>
     </svg>
     <div style="text-align:right;font-size:11px;color:var(--muted);margin-top:2px;">
-      Aktueller Saldo: <b style="color:var(--text);">${fmtHours(lastVal)} Std</b>
+      Aktueller Gesamtsaldo: <b style="color:var(--text);">${fmtHours(lastVal)} Std</b>
     </div>
   `;
 }
@@ -2444,6 +2522,15 @@ const CHANGELOG = {
   'v57': [
     'Neu: automatische Notfall-Sicherheitskopien alle 14 Tage im Hintergrund (in den Einstellungen unter Datensicherung, deaktivierbar) – ersetzt keine echte Sicherung, aber ein zusätzliches Netz gegen Programmfehler.',
   ],
+  'v58': [
+    'Neu: automatische Überstunden-Bilanz – Arbeitstage werden mit den hinterlegten Standard-Arbeitszeiten verglichen (Ist minus Soll), zusammen mit den manuellen Abbau-Einträgen als laufendes Gesamtkonto. Neue Dashboard-Kachel "Überstunden" (ein-/ausschaltbar), bestehende Saldo-Grafik in der Jahresübersicht nutzt jetzt dieselbe Berechnung.',
+  ],
+  'v59': [
+    'Neu in den Profil-Einstellungen: Startwerte für den Einstieg mitten im Jahr – "schon genommene Urlaubstage" und "Überstunden-Saldo beim Start" werden jetzt korrekt in Urlaubskonto und Überstunden-Bilanz eingerechnet.',
+  ],
+  'v60': [
+    'Neuer Schalter "Σ anzeigen/ausblenden" neben "KW anzeigen" – blendet die Wochensummen-Spalte im Kalender bei Bedarf aus.',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -2489,7 +2576,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v57'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v60'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;

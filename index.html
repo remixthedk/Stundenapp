@@ -479,7 +479,8 @@
 
 
 <div class="calendar-wrap">
-  <div style="display:flex;justify-content:flex-end;margin-bottom:6px;">
+  <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:6px;">
+    <button type="button" id="toggleWeekSum" class="kw-toggle">Σ ausblenden</button>
     <button type="button" id="toggleKW" class="kw-toggle">KW anzeigen</button>
   </div>
   <div class="cal-weekdays" id="calWeekdaysHeader">
@@ -587,6 +588,13 @@
         <input type="number" id="setUrlaubstage" placeholder="z.B. 30" step="1" min="0">
         <label>E-Mail-Empfänger (für PDF-Versand)</label>
         <input type="email" id="setEmailRecipient" placeholder="stunden@john-haustechnik.net">
+
+        <hr class="sep">
+        <div class="settings-hint" style="margin-top:0;">Nur bei Ersteinrichtung wichtig – z.B. wenn du mitten im Jahr mit der App einsteigst.</div>
+        <label>Urlaubstage, die dieses Jahr schon genommen wurden (vor App-Nutzung)</label>
+        <input type="number" id="setUrlaubVorApp" placeholder="0" step="1" min="0">
+        <label>Überstunden-Saldo beim Einstieg (negativ für Minusstunden, z.B. -5)</label>
+        <input type="number" id="setOvertimeStart" placeholder="0" step="0.25">
       </div>
     </div>
 
@@ -665,6 +673,10 @@
         <div class="toggle-row">
           <div><label style="margin:0;">Abbau</label></div>
           <label class="switch"><input type="checkbox" id="setTileAbbau"><span class="slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div><label style="margin:0;">Überstunden</label></div>
+          <label class="switch"><input type="checkbox" id="setTileOvertime"><span class="slider"></span></label>
         </div>
         <div class="toggle-row">
           <div><label style="margin:0;">Kunden</label></div>
