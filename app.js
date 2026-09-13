@@ -906,6 +906,7 @@ function openHiddenMenu(){
   document.getElementById('storageInfoResult').textContent = '';
   document.getElementById('resetConfirmBox').style.display = 'none';
   document.getElementById('resetConfirmInput').value = '';
+  renderDeleteMonthList();
   hiddenMenuModal.classList.add('open');
 }
 document.getElementById('closeHiddenMenu').addEventListener('click', () => hiddenMenuModal.classList.remove('open'));
@@ -969,6 +970,39 @@ document.getElementById('btnConfirmReset').addEventListener('click', () => {
   try{ localStorage.clear(); }catch(e){}
   window.location.reload();
 });
+
+function renderDeleteMonthList(){
+  const months = getMonthsWithData();
+  const list = document.getElementById('deleteMonthList');
+  if(months.length === 0){
+    list.innerHTML = `<div class="settings-hint" style="margin-top:0;">Keine Daten vorhanden.</div>`;
+    return;
+  }
+  list.innerHTML = months.map(ym => {
+    const [y,m] = ym.split('-').map(Number);
+    const count = days.filter(d => d.date.startsWith(ym)).length;
+    return `<div class="share-history-row">
+      <div class="info">
+        <div class="d">${MONTHS[m-1]} ${y}</div>
+        <div class="s">${count} Tag(e)</div>
+      </div>
+      <button type="button" data-ym="${ym}" data-count="${count}" data-label="${MONTHS[m-1]} ${y}" class="history-redo btn-delete-month" style="background:var(--danger);">Löschen</button>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.btn-delete-month').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ym = btn.dataset.ym, label = btn.dataset.label, count = btn.dataset.count;
+      const ok = window.confirm(`${label} wirklich löschen? ${count} Tag(e) werden unwiderruflich entfernt. Falls nötig, vorher exportieren!`);
+      if(!ok) return;
+      days = days.filter(d => !d.date.startsWith(ym));
+      const saveOk = saveDays(days);
+      renderDeleteMonthList();
+      render();
+      toast(saveOk ? `${label} gelöscht` : '⚠️ Löschen konnte nicht gespeichert werden');
+    });
+  });
+}
 
 
 const kundenModal = document.getElementById('kundenModal');
@@ -2829,7 +2863,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v73'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v74'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
