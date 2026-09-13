@@ -890,6 +890,178 @@ function levenshtein(a, b){
   return dp[m][n];
 }
 
+/* ===== Verstecktes Menü (10x auf Versionsnummer tippen) ===== */
+const hiddenMenuModal = document.getElementById('hiddenMenuModal');
+function openHiddenMenu(){
+  document.getElementById('setAutoSnapshotHidden').checked = isAutoSnapshotEnabled();
+  document.getElementById('storageInfoResult').textContent = '';
+  document.getElementById('resetConfirmBox').style.display = 'none';
+  document.getElementById('resetConfirmInput').value = '';
+  hiddenMenuModal.classList.add('open');
+}
+document.getElementById('closeHiddenMenu').addEventListener('click', () => hiddenMenuModal.classList.remove('open'));
+hiddenMenuModal.addEventListener('click', (e) => { if(e.target === hiddenMenuModal) hiddenMenuModal.classList.remove('open'); });
+
+document.getElementById('setAutoSnapshotHidden').addEventListener('change', (e) => {
+  setAutoSnapshotEnabled(e.target.checked);
+});
+document.getElementById('btnShowSnapshotsHidden').addEventListener('click', () => {
+  renderSnapshotList();
+  hiddenMenuModal.classList.remove('open');
+  snapshotModal.classList.add('open');
+});
+
+document.getElementById('btnStorageInfo').addEventListener('click', () => {
+  let usedBytes = 0;
+  try{
+    for(const key in localStorage){
+      if(Object.prototype.hasOwnProperty.call(localStorage, key)){
+        usedBytes += (localStorage[key].length + key.length) * 2; // UTF-16 ≈ 2 Byte/Zeichen
+      }
+    }
+  }catch(e){}
+  const usedKB = (usedBytes/1024).toFixed(1);
+  document.getElementById('storageInfoResult').innerHTML =
+    `Aktuell belegt: <b style="color:var(--text);">${usedKB} KB</b><br>Browser erlauben normalerweise 5–10 MB pro Website – aktuell also nur ein kleiner Bruchteil davon belegt.`;
+});
+
+document.getElementById('btnRawExport').addEventListener('click', () => {
+  const payload = { exportedAt: new Date().toISOString(), settings, days };
+  const json = JSON.stringify(payload, null, 2);
+  const blob = new Blob([json], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `Rohdaten-Export_${toISODate(new Date())}.json`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('Rohdaten-Export heruntergeladen');
+});
+
+document.getElementById('btnShowReset').addEventListener('click', () => {
+  document.getElementById('resetConfirmBox').style.display = 'block';
+});
+document.getElementById('btnCancelReset').addEventListener('click', () => {
+  document.getElementById('resetConfirmBox').style.display = 'none';
+  document.getElementById('resetConfirmInput').value = '';
+});
+document.getElementById('resetConfirmInput').addEventListener('input', (e) => {
+  document.getElementById('btnConfirmReset').disabled = e.target.value.trim() !== 'LÖSCHEN';
+});
+document.getElementById('btnConfirmReset').addEventListener('click', () => {
+  try{ localStorage.clear(); }catch(e){}
+  window.location.reload();
+});
+
+
+const kundenModal = document.getElementById('kundenModal');
+document.getElementById('btnManageKunden').addEventListener('click', () => {
+  renderKundenModal();
+  settingsModal.classList.remove('open');
+  kundenModal.classList.add('open');
+});
+document.getElementById('closeKundenModal').addEventListener('click', () => kundenModal.classList.remove('open'));
+kundenModal.addEventListener('click', (e) => { if(e.target === kundenModal) kundenModal.classList.remove('open'); });
+
+function kundenStats(){
+  const stats = {};
+  days.forEach(d => {
+    if(d.type !== 'work') return;
+    (d.items||[]).forEach(it => {
+      const name = (it.kunde||'').trim() || 'Büroarbeiten';
+      if(!stats[name]) stats[name] = {count:0, hours:0};
+      stats[name].count++;
+      stats[name].hours += parseFloat(it.stunden)||0;
+    });
+  });
+  return stats;
+}
+
+function findSimilarKundenPairs(names){
+  const pairs = [];
+  for(let i=0;i<names.length;i++){
+    for(let j=i+1;j<names.length;j++){
+      const a = names[i], b = names[j];
+      if(a.length < 4 || b.length < 4) continue;
+      if(a.toLowerCase() === b.toLowerCase()) continue;
+      const dist = levenshtein(a.toLowerCase(), b.toLowerCase());
+      if(dist > 0 && dist <= 2) pairs.push([a,b]);
+    }
+  }
+  return pairs;
+}
+
+function renameKundeEverywhere(oldName, newName){
+  newName = newName.trim();
+  if(!newName || newName === oldName) return 0;
+  let changed = 0;
+  days.forEach(d => {
+    (d.items||[]).forEach(it => {
+      const cur = (it.kunde||'').trim() || 'Büroarbeiten';
+      if(cur === oldName){
+        it.kunde = (newName === 'Büroarbeiten') ? '' : newName;
+        changed++;
+      }
+    });
+  });
+  if(changed > 0) saveDays(days);
+  return changed;
+}
+
+function renderKundenModal(){
+  const stats = kundenStats();
+  const names = Object.keys(stats);
+
+  const similarBox = document.getElementById('kundenSimilarBox');
+  const similarPairs = findSimilarKundenPairs(names).filter(([a,b]) => a!=='Büroarbeiten' && b!=='Büroarbeiten');
+  similarBox.innerHTML = similarPairs.length === 0 ? '' : `
+    <div class="settings-hint" style="margin-top:0;">Mögliche Duplikate erkannt:</div>
+    ${similarPairs.map(([a,b]) => `
+      <div class="share-history-row">
+        <div class="info"><div class="d">${escapeHtml(a)} / ${escapeHtml(b)}</div><div class="s">Vielleicht derselbe Kunde?</div></div>
+        <button type="button" class="history-redo similar-merge" data-a="${escapeHtml(a)}" data-b="${escapeHtml(b)}">Zusammenführen</button>
+      </div>
+    `).join('')}
+    <hr class="sep">
+  `;
+  similarBox.querySelectorAll('.similar-merge').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const a = btn.dataset.a, b = btn.dataset.b;
+      openKundenRename(a, b);
+    });
+  });
+
+  const sorted = names.sort((a,b) => stats[b].count - stats[a].count);
+  const list = document.getElementById('kundenList');
+  if(sorted.length === 0){
+    list.innerHTML = `<div class="settings-hint">Noch keine Kunden erfasst.</div>`;
+    return;
+  }
+  list.innerHTML = sorted.map(name => `
+    <div class="share-history-row">
+      <div class="info">
+        <div class="d">${escapeHtml(name)}</div>
+        <div class="s">${stats[name].count} Eintrag/Einträge · ${fmtHours(stats[name].hours)} Std</div>
+      </div>
+      <button type="button" class="history-redo kunde-rename" data-name="${escapeHtml(name)}">Umbenennen</button>
+    </div>
+  `).join('');
+  list.querySelectorAll('.kunde-rename').forEach(btn => {
+    btn.addEventListener('click', () => openKundenRename(btn.dataset.name));
+  });
+}
+
+function openKundenRename(oldName, suggestTarget){
+  const suggestion = suggestTarget ? suggestTarget : oldName;
+  const newName = window.prompt(`"${oldName}" umbenennen in (wirkt sich auf alle bisherigen Einträge aus):`, suggestion);
+  if(newName === null) return; // abgebrochen
+  const changed = renameKundeEverywhere(oldName, newName.trim());
+  if(changed > 0){
+    toast(`${changed} Eintrag/Einträge umbenannt`);
+    renderKundenModal();
+    render();
+  }
+}
+
 function checkTypo(inputEl, hintEl){
   const val = inputEl.value.trim();
   hintEl.style.display = 'none';
@@ -1093,7 +1265,6 @@ function openSettings(){
   document.getElementById('setTileOvertime').checked = settings.tileOvertime !== false;
   document.getElementById('setTileKunden').checked = settings.tileKunden !== false;
   document.getElementById('setDarkMode').checked = !!settings.darkMode;
-  document.getElementById('setAutoSnapshot').checked = isAutoSnapshotEnabled();
   document.getElementById('setPinEnabled').checked = !!settings.pinEnabled;
   document.getElementById('setPinNew').value = '';
   document.getElementById('setPinConfirm').value = '';
@@ -1167,7 +1338,6 @@ document.getElementById('saveSettings').addEventListener('click', () => {
     pinEnabled, pinHash,
   };
   const saveOk = saveSettings(settings);
-  setAutoSnapshotEnabled(document.getElementById('setAutoSnapshot').checked);
   applyDarkMode();
   settingsModal.classList.remove('open');
   render();
@@ -1261,9 +1431,9 @@ function runSearch(){
 
     if(day.type === 'work'){
       (day.items||[]).forEach(it => {
-        const combined = `${it.kunde||''} ${it.taetigkeit||''}`;
+        const combined = `${it.kunde||''} ${it.taetigkeit||''} ${it.notiz||''}`;
         if(matchText(combined)){
-          matches.push({date: day.date, kunde: it.kunde||'Büroarbeiten', taetigkeit: it.taetigkeit||'', stunden: it.stunden});
+          matches.push({date: day.date, kunde: it.kunde||'Büroarbeiten', taetigkeit: it.taetigkeit||'', stunden: it.stunden, notiz: it.notiz||''});
         }
       });
     } else {
@@ -1286,6 +1456,7 @@ function runSearch(){
     return `<div class="search-result" data-date="${m.date}">
       <div class="sr-top"><span>${highlightWords(m.kunde, words)}</span><span>${fmtHours(m.stunden)} Std</span></div>
       <div class="sr-sub">${fmtDate(dt)}${m.taetigkeit ? ' · ' + highlightWords(m.taetigkeit, words) : ''}</div>
+      ${m.notiz ? `<div class="sr-sub" style="margin-top:3px;">🗒️ ${highlightWords(m.notiz, words)} <span class="notiz-tag">nur intern</span></div>` : ''}
     </div>`;
   }).join('');
 
@@ -1780,35 +1951,58 @@ function getMonthsWithData(){
 
 function resolveExportPeriod(prefs){
   const type = prefs.period;
-  let filtered = [], label = '', fileLabel = '';
+  let filtered = [], label = '', fileLabel = '', rangeStart = '', rangeEnd = '';
   if(type === 'current'){
     const y=viewDate.getFullYear(), m=viewDate.getMonth();
     filtered = days.filter(d=>{const dt=fromISODate(d.date);return dt.getFullYear()===y&&dt.getMonth()===m;});
     label = `${MONTHS[m]} ${y}`; fileLabel = `${MONTHS[m]}-${y}`;
+    rangeStart = toISODate(new Date(y,m,1)); rangeEnd = toISODate(new Date(y,m+1,0));
   } else if(type === 'lastMonth'){
     const d0 = new Date(viewDate.getFullYear(), viewDate.getMonth()-1, 1);
     const y=d0.getFullYear(), m=d0.getMonth();
     filtered = days.filter(d=>{const dt=fromISODate(d.date);return dt.getFullYear()===y&&dt.getMonth()===m;});
     label = `${MONTHS[m]} ${y}`; fileLabel = `${MONTHS[m]}-${y}`;
+    rangeStart = toISODate(new Date(y,m,1)); rangeEnd = toISODate(new Date(y,m+1,0));
   } else if(type === 'thisYear'){
     const y = viewDate.getFullYear();
     filtered = days.filter(d=>fromISODate(d.date).getFullYear()===y);
     label = `Jahr ${y}`; fileLabel = `Jahr-${y}`;
+    rangeStart = toISODate(new Date(y,0,1)); rangeEnd = toISODate(new Date(y,11,31));
   } else if(type === 'otherMonth'){
     if(!prefs.otherMonth) return null;
     const [yy,mm] = prefs.otherMonth.split('-').map(Number);
     filtered = days.filter(d=>{const dt=fromISODate(d.date);return dt.getFullYear()===yy&&dt.getMonth()===(mm-1);});
     label = `${MONTHS[mm-1]} ${yy}`; fileLabel = `${MONTHS[mm-1]}-${yy}`;
+    rangeStart = toISODate(new Date(yy,mm-1,1)); rangeEnd = toISODate(new Date(yy,mm,0));
   } else if(type === 'custom'){
     if(!prefs.customFrom || !prefs.customTo) return null;
     filtered = days.filter(d=> d.date >= prefs.customFrom && d.date <= prefs.customTo);
     label = `${fmtDate(fromISODate(prefs.customFrom))} – ${fmtDate(fromISODate(prefs.customTo))}`;
     fileLabel = `Zeitraum_${prefs.customFrom}_bis_${prefs.customTo}`;
+    rangeStart = prefs.customFrom; rangeEnd = prefs.customTo;
   } else {
     return null;
   }
   filtered = filtered.slice().sort((a,b)=>a.date.localeCompare(b.date));
-  return {days:filtered, label, fileLabel};
+  return {days:filtered, label, fileLabel, rangeStart, rangeEnd};
+}
+
+// Werktage (Mo-Fr, keine Feiertage) im Zeitraum, für die noch gar kein Eintrag existiert.
+function findMissingWorkdays(rangeStart, rangeEnd){
+  if(!rangeStart || !rangeEnd) return [];
+  const missing = [];
+  let cur = fromISODate(rangeStart);
+  const end = fromISODate(rangeEnd);
+  const todayISO = toISODate(new Date());
+  while(cur <= end){
+    const iso = toISODate(cur);
+    const dow = cur.getDay();
+    if(iso <= todayISO && dow >= 1 && dow <= 5 && !isHoliday(cur) && !days.find(d=>d.date===iso)){
+      missing.push(iso);
+    }
+    cur = addDays(cur, 1);
+  }
+  return missing;
 }
 
 const FORMAT_LABELS = {'pdf-standard':'PDF Standard','pdf-compact':'PDF Kompakt','csv':'CSV','excel':'Excel'};
@@ -1820,17 +2014,31 @@ function updateExportSummary(){
     `→ ${FORMAT_LABELS[exportPrefs.format]}, ${resolved ? resolved.label : PERIOD_LABELS[exportPrefs.period]}`;
 
   const preview = document.getElementById('exportPreview');
+  const missingEl = document.getElementById('exportMissingDays');
   if(!resolved){
     preview.textContent = 'Bitte Zeitraum vollständig auswählen.';
+    missingEl.style.display = 'none';
     return;
   }
   if(resolved.days.length === 0){
     preview.textContent = 'Keine Einträge in diesem Zeitraum.';
+    missingEl.style.display = 'none';
     return;
   }
   const totalStd = resolved.days.reduce((s,d)=>s+dayTotal(d),0);
   const urlaubCount = resolved.days.filter(d=>d.type==='urlaub').length;
   preview.textContent = `${resolved.days.length} Tage, ${fmtHours(totalStd)} Std, davon ${urlaubCount} Urlaub`;
+
+  const missing = findMissingWorkdays(resolved.rangeStart, resolved.rangeEnd);
+  if(missing.length === 0){
+    missingEl.textContent = '';
+    missingEl.style.display = 'none';
+  } else {
+    const shown = missing.slice(0,5).map(iso => fmtDate(fromISODate(iso)).slice(0,6)).join(', ');
+    const more = missing.length > 5 ? ` und ${missing.length-5} weitere` : '';
+    missingEl.textContent = `⚠️ ${missing.length} Werktag(e) ohne Eintrag: ${shown}${more}`;
+    missingEl.style.display = 'block';
+  }
 }
 
 function initExportUI(){
@@ -2513,11 +2721,6 @@ function checkAutoSnapshot(){
 }
 
 const snapshotModal = document.getElementById('snapshotModal');
-document.getElementById('btnShowSnapshots').addEventListener('click', () => {
-  renderSnapshotList();
-  settingsModal.classList.remove('open');
-  snapshotModal.classList.add('open');
-});
 document.getElementById('closeSnapshotModal').addEventListener('click', () => snapshotModal.classList.remove('open'));
 snapshotModal.addEventListener('click', (e) => { if(e.target === snapshotModal) snapshotModal.classList.remove('open'); });
 
@@ -2608,6 +2811,11 @@ const CHANGELOG = {
   'v63': [
     'Neu: eigenes einfarbiges App-Icon für Androids "Themen-Symbole" (Material You) – bleibt jetzt auch bei eingefärbten Icons klar als Haus-Symbol erkennbar, statt zu verblassen.',
   ],
+  'v64': [
+    'Neu: Suche durchsucht jetzt auch Notizen.',
+    'Neu: Export-Vorschau zeigt fehlende Werktage im gewählten Zeitraum an.',
+    'Neu: Kundenverwaltung in den Einstellungen (⚙ → Kunden) – Namen umbenennen/zusammenführen, wirkt rückwirkend auf alle Einträge, inkl. Duplikat-Erkennung.',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -2653,17 +2861,20 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v63'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v65'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
 document.getElementById('appVersionLabel').addEventListener('click', () => {
   versionTapCount++;
   clearTimeout(versionTapTimer);
-  versionTapTimer = setTimeout(() => { versionTapCount = 0; }, 1500);
-  if(versionTapCount >= 5){
-    versionTapCount = 0;
+  versionTapTimer = setTimeout(() => { versionTapCount = 0; }, 2500);
+  if(versionTapCount === 5){
     toast('Made with ❤️ by Marcus Lüschen');
+  }
+  if(versionTapCount >= 10){
+    versionTapCount = 0;
+    openHiddenMenu();
   }
 });
 applyDarkMode();

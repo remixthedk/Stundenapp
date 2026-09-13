@@ -555,6 +555,7 @@
 
         <div class="settings-hint" id="exportSummary" style="margin-top:14px;"></div>
         <div class="settings-hint" id="exportPreview" style="margin-top:4px;font-weight:600;color:var(--text);"></div>
+        <div id="exportMissingDays" style="margin-top:4px;font-size:11.5px;color:var(--danger);display:none;"></div>
 
         <div class="modal-actions" style="margin-top:12px;">
           <button class="btn primary" id="btnDoExport" style="flex:1">Exportieren</button>
@@ -617,6 +618,17 @@
           <div><input type="time" id="setFriEnd"></div>
           <div><input type="number" id="setFriPause" placeholder="Pause Min" step="5"></div>
         </div>
+      </div>
+    </div>
+
+    <!-- Kunden -->
+    <div class="settings-group">
+      <button type="button" class="settings-group-head">
+        <span>👥 Kunden</span><span class="chev">▾</span>
+      </button>
+      <div class="settings-group-body">
+        <div class="settings-hint" style="margin-top:0;">Namen korrigieren oder zusammenführen – wirkt sich rückwirkend auf alle bisherigen Einträge aus.</div>
+        <button type="button" class="btn secondary" id="btnManageKunden" style="width:100%;margin-top:10px;">Kunden verwalten</button>
       </div>
     </div>
 
@@ -710,12 +722,6 @@
         <div class="modal-actions">
           <button class="btn secondary" id="btnShowQr" style="flex:1">📱 QR-Code zur Installation</button>
         </div>
-        <hr class="sep">
-        <div class="toggle-row">
-          <div><label style="margin:0;font-size:12.5px;color:var(--muted);">Automatische Sicherheitskopien (Notfall-Reserve)</label></div>
-          <label class="switch"><input type="checkbox" id="setAutoSnapshot"><span class="slider"></span></label>
-        </div>
-        <div class="settings-hint" style="margin-top:4px;font-size:11px;">Alle 14 Tage unsichtbar im Hintergrund, nur für den Notfall – ersetzt keine echte Sicherung. <span id="btnShowSnapshots" style="text-decoration:underline;cursor:pointer;">Anzeigen</span></div>
       </div>
     </div>
 
@@ -915,6 +921,55 @@
     <div class="modal-actions">
       <button class="btn primary" id="confirmShareImport" style="flex:1">Auswahl übernehmen</button>
     </div>
+  </div>
+</div>
+
+<!-- Verstecktes Menü -->
+<div class="modal-backdrop" id="hiddenMenuModal">
+  <div class="modal-sheet">
+    <div class="modal-head">
+      <h2>🔧 Erweitert</h2>
+      <button id="closeHiddenMenu">✕</button>
+    </div>
+    <div class="settings-hint" style="margin-top:0;margin-bottom:16px;">Selten gebrauchte Funktionen, meist nur für den Notfall gedacht.</div>
+
+    <div class="toggle-row">
+      <div><label style="margin:0;">Automatische Sicherheitskopien</label></div>
+      <label class="switch"><input type="checkbox" id="setAutoSnapshotHidden"><span class="slider"></span></label>
+    </div>
+    <div class="settings-hint" style="margin-top:4px;margin-bottom:10px;">Alle 14 Tage unsichtbar im Hintergrund, nur für den Notfall – ersetzt keine echte Sicherung.</div>
+    <button type="button" class="btn secondary" id="btnShowSnapshotsHidden" style="width:100%;margin-bottom:16px;">Sicherheitskopien anzeigen</button>
+
+    <hr class="sep">
+    <button type="button" class="btn secondary" id="btnStorageInfo" style="width:100%;margin-top:14px;">💾 Speicherplatz-Info</button>
+    <div id="storageInfoResult" class="settings-hint" style="margin-top:8px;"></div>
+
+    <hr class="sep">
+    <button type="button" class="btn secondary" id="btnRawExport" style="width:100%;margin-top:14px;">📄 Rohdaten exportieren (JSON)</button>
+
+    <hr class="sep">
+    <div class="settings-hint" style="margin-top:14px;color:var(--danger);"><b>Gefahrenbereich</b></div>
+    <button type="button" class="btn secondary" id="btnShowReset" style="width:100%;margin-top:8px;border-color:var(--danger);color:var(--danger);">App komplett zurücksetzen</button>
+    <div id="resetConfirmBox" style="display:none;margin-top:10px;">
+      <div class="settings-hint" style="margin-top:0;">Löscht <b>alle</b> Daten und Einstellungen unwiderruflich. Zum Bestätigen "LÖSCHEN" eintippen:</div>
+      <input type="text" id="resetConfirmInput" placeholder="LÖSCHEN" style="margin-top:8px;">
+      <div class="modal-actions" style="margin-top:10px;">
+        <button type="button" class="btn secondary" id="btnCancelReset" style="flex:1;">Abbrechen</button>
+        <button type="button" class="btn primary" id="btnConfirmReset" style="flex:1;background:var(--danger);" disabled>Endgültig löschen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Kunden verwalten Modal -->
+<div class="modal-backdrop" id="kundenModal">
+  <div class="modal-sheet">
+    <div class="modal-head">
+      <h2>👥 Kunden verwalten</h2>
+      <button id="closeKundenModal">✕</button>
+    </div>
+    <div id="kundenSimilarBox"></div>
+    <div id="kundenList"></div>
   </div>
 </div>
 
