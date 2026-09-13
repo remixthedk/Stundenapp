@@ -1,5 +1,12 @@
 /* ===== Utilities ===== */
 const APP_BOOT_TIME = Date.now();
+function getSplashDurationMs(){
+  const v = parseFloat(localStorage.getItem('sz_splash_duration_s'));
+  return (!isNaN(v) && v >= 0) ? v*1000 : 500; // Standard: 0,5 Sekunden
+}
+function setSplashDurationMs(seconds){
+  try{ localStorage.setItem('sz_splash_duration_s', String(seconds)); }catch(e){}
+}
 const WEEKDAYS = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
 const MONTHS = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 
@@ -895,6 +902,7 @@ function levenshtein(a, b){
 const hiddenMenuModal = document.getElementById('hiddenMenuModal');
 function openHiddenMenu(){
   document.getElementById('setAutoSnapshotHidden').checked = isAutoSnapshotEnabled();
+  document.getElementById('setSplashDuration').value = (getSplashDurationMs()/1000).toFixed(1);
   document.getElementById('storageInfoResult').textContent = '';
   document.getElementById('resetConfirmBox').style.display = 'none';
   document.getElementById('resetConfirmInput').value = '';
@@ -905,6 +913,13 @@ hiddenMenuModal.addEventListener('click', (e) => { if(e.target === hiddenMenuMod
 
 document.getElementById('setAutoSnapshotHidden').addEventListener('change', (e) => {
   setAutoSnapshotEnabled(e.target.checked);
+});
+document.getElementById('setSplashDuration').addEventListener('change', (e) => {
+  let v = parseFloat(e.target.value);
+  if(isNaN(v) || v < 0) v = 0;
+  if(v > 5) v = 5;
+  e.target.value = v.toFixed(1);
+  setSplashDurationMs(v);
 });
 document.getElementById('btnShowSnapshotsHidden').addEventListener('click', () => {
   renderSnapshotList();
@@ -2874,7 +2889,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v68'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v69'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
@@ -2906,9 +2921,9 @@ if(urlParams.get('action') === 'today'){
   setTimeout(() => openDayModal(toISODate(new Date())), 300);
 }
 
-/* ===== Splash-Screen ausblenden (mit Mindestanzeigedauer, damit es nicht nur aufblitzt) ===== */
+/* ===== Splash-Screen ausblenden (mit einstellbarer Mindestanzeigedauer) ===== */
 (function hideSplashScreen(){
-  const MIN_DISPLAY_MS = 500;
+  const MIN_DISPLAY_MS = getSplashDurationMs();
   const elapsed = Date.now() - APP_BOOT_TIME;
   const wait = Math.max(0, MIN_DISPLAY_MS - elapsed);
   setTimeout(() => {
