@@ -2602,6 +2602,9 @@ const CHANGELOG = {
   'v61': [
     'Einführung beim ersten Start fragt jetzt aktiv alle wichtigen Daten ab: Name & Adresse, Arbeitszeiten, Jahresurlaubstage sowie die Startwerte für Urlaub/Überstunden beim Einstieg – kein Suchen mehr in den Einstellungen nötig.',
   ],
+  'v62': [
+    'App-Icon überarbeitet: nutzt jetzt nur noch das Haus-Symbol des neuen Logos statt des vollen Schriftzugs – deutlich besser erkennbar auf dem Homescreen.',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -2647,7 +2650,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v61'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v62'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
