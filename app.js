@@ -902,7 +902,7 @@ function levenshtein(a, b){
 const hiddenMenuModal = document.getElementById('hiddenMenuModal');
 function openHiddenMenu(){
   document.getElementById('setAutoSnapshotHidden').checked = isAutoSnapshotEnabled();
-  document.getElementById('setSplashDuration').value = (getSplashDurationMs()/1000).toFixed(1);
+  document.getElementById('setSplashDuration').value = (getSplashDurationMs()/1000).toFixed(1).replace('.', ',');
   document.getElementById('storageInfoResult').textContent = '';
   document.getElementById('resetConfirmBox').style.display = 'none';
   document.getElementById('resetConfirmInput').value = '';
@@ -916,12 +916,12 @@ document.getElementById('setAutoSnapshotHidden').addEventListener('change', (e) 
 });
 document.getElementById('btnSaveSplashDuration').addEventListener('click', () => {
   const input = document.getElementById('setSplashDuration');
-  let v = parseFloat(input.value);
+  let v = parseFloat(input.value.replace(',', '.'));
   if(isNaN(v) || v < 0) v = 0;
   if(v > 5) v = 5;
-  input.value = v.toFixed(1);
+  input.value = v.toFixed(1).replace('.', ',');
   setSplashDurationSeconds(v);
-  toast(`Splash-Dauer: ${v.toFixed(1)} Sekunden gespeichert`);
+  toast(`Splash-Dauer: ${v.toFixed(1).replace('.', ',')} Sekunden gespeichert`);
 });
 document.getElementById('btnShowSnapshotsHidden').addEventListener('click', () => {
   renderSnapshotList();
@@ -2891,7 +2891,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v70'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v71'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
