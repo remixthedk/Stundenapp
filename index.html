@@ -255,6 +255,25 @@
   .download-confirmed{background:var(--accent-klima) !important;transition:background 0.2s;}
   .onboarding-dot{width:7px;height:7px;border-radius:50%;background:var(--border);}
   .onboarding-dot.active{background:var(--primary);}
+  #splashScreen{
+    position:fixed;inset:0;z-index:9999;
+    background:var(--bg);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    transition:opacity 0.3s ease;
+  }
+  #splashScreen img{width:180px;max-width:60vw;height:auto;}
+  #splashScreen.fade-out{opacity:0;pointer-events:none;}
+  .splash-dots{display:flex;gap:8px;margin-top:22px;}
+  .splash-dots span{
+    width:8px;height:8px;border-radius:50%;background:var(--primary);
+    opacity:0.3;animation:splashPulse 1.2s ease-in-out infinite;
+  }
+  .splash-dots span:nth-child(2){animation-delay:0.2s;}
+  .splash-dots span:nth-child(3){animation-delay:0.4s;}
+  @keyframes splashPulse{
+    0%, 80%, 100%{opacity:0.3;transform:scale(1);}
+    40%{opacity:1;transform:scale(1.3);}
+  }
   #updateBanner{
     position:fixed;top:0;left:0;right:0;z-index:500;
     background:var(--primary);color:#fff;
@@ -425,6 +444,17 @@
 </style>
 </head>
 <body>
+
+<div id="splashScreen">
+  <img src="logo.png" alt="John Haustechnik">
+  <div class="splash-dots"><span></span><span></span><span></span></div>
+</div>
+<script>
+  try{
+    var s = JSON.parse(localStorage.getItem('sz_settings')||'{}');
+    if(s.darkMode) document.body.classList.add('dark');
+  }catch(e){}
+</script>
 
 <div id="onboarding" style="display:none;position:fixed;inset:0;z-index:400;background:var(--bg);flex-direction:column;padding:24px;">
   <div style="text-align:right;">
@@ -729,13 +759,22 @@
       <button type="button" class="settings-group-head">
         <span>ℹ️ Über diese App</span><span class="chev">▾</span>
       </button>
-      <div class="settings-group-body">
-        <p style="font-size:13px;line-height:1.6;margin:0 0 10px;">
+      <div class="settings-group-body" style="text-align:center;">
+        <img src="logo.png" alt="John Haustechnik" style="height:44px;margin-bottom:14px;">
+        <p style="font-size:13px;line-height:1.6;margin:0 0 14px;text-align:left;">
           <b>John Haustechnik GmbH &amp; Co KG</b><br>
           Friedrichsfehner Str. 8 · 26188 Edewecht
         </p>
-        <p style="font-size:13px;line-height:1.6;margin:0;">
-          Idee, Konzept und Umsetzung: <b>Marcus Lüschen</b><br>
+        <div style="text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:12px 14px;">
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px;">Credits</div>
+          <p style="font-size:13px;line-height:1.6;margin:0 0 8px;">
+            Idee, Konzept &amp; Verbesserungen<br><b>Marcus Lüschen</b>
+          </p>
+          <p style="font-size:13px;line-height:1.6;margin:0;">
+            Code-Erstellung<br><b>Claude (Anthropic)</b>
+          </p>
+        </div>
+        <p style="font-size:11.5px;color:var(--muted);margin:12px 0 0;text-align:left;">
           Entwickelt für den betriebsinternen Einsatz bei John Haustechnik.
         </p>
       </div>

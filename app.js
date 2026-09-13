@@ -1,4 +1,5 @@
 /* ===== Utilities ===== */
+const APP_BOOT_TIME = Date.now();
 const WEEKDAYS = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
 const MONTHS = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 
@@ -1015,12 +1016,15 @@ function renderKundenModal(){
   const similarPairs = findSimilarKundenPairs(names).filter(([a,b]) => a!=='Büroarbeiten' && b!=='Büroarbeiten');
   similarBox.innerHTML = similarPairs.length === 0 ? '' : `
     <div class="settings-hint" style="margin-top:0;">Mögliche Duplikate erkannt:</div>
-    ${similarPairs.map(([a,b]) => `
+    ${similarPairs.map(([a,b]) => {
+      // Der seltener verwendete Name wird vorgeschlagen, in den häufigeren umbenannt zu werden
+      const [minor, major] = stats[a].count >= stats[b].count ? [b,a] : [a,b];
+      return `
       <div class="share-history-row">
-        <div class="info"><div class="d">${escapeHtml(a)} / ${escapeHtml(b)}</div><div class="s">Vielleicht derselbe Kunde?</div></div>
-        <button type="button" class="history-redo similar-merge" data-a="${escapeHtml(a)}" data-b="${escapeHtml(b)}">Zusammenführen</button>
+        <div class="info"><div class="d">${escapeHtml(minor)} → ${escapeHtml(major)}</div><div class="s">Vielleicht derselbe Kunde? (${stats[major].count} vs. ${stats[minor].count} Einträge)</div></div>
+        <button type="button" class="history-redo similar-merge" data-a="${escapeHtml(minor)}" data-b="${escapeHtml(major)}">Zusammenführen</button>
       </div>
-    `).join('')}
+    `;}).join('')}
     <hr class="sep">
   `;
   similarBox.querySelectorAll('.similar-merge').forEach(btn => {
@@ -2816,6 +2820,15 @@ const CHANGELOG = {
     'Neu: Export-Vorschau zeigt fehlende Werktage im gewählten Zeitraum an.',
     'Neu: Kundenverwaltung in den Einstellungen (⚙ → Kunden) – Namen umbenennen/zusammenführen, wirkt rückwirkend auf alle Einträge, inkl. Duplikat-Erkennung.',
   ],
+  'v66': [
+    'Fehler behoben: Bei erkannten Kunden-Duplikaten wurde die Umbenennungs-Richtung falsch vorgeschlagen (der korrekte Name statt der Falschschreibung). Zeigt jetzt klar "Falschschreibung → richtiger Name" an.',
+  ],
+  'v67': [
+    '"Über diese App" überarbeitet: Firmenlogo ergänzt, Credits als eigener Bereich (Idee & Konzept sowie Code-Erstellung getrennt aufgeführt).',
+  ],
+  'v68': [
+    'Neu: eigener Splash-Screen beim Start mit großem Logo statt kurzem weißen Blitz.',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -2861,7 +2874,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v65'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v68'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
@@ -2892,3 +2905,16 @@ const urlParams = new URLSearchParams(window.location.search);
 if(urlParams.get('action') === 'today'){
   setTimeout(() => openDayModal(toISODate(new Date())), 300);
 }
+
+/* ===== Splash-Screen ausblenden (mit Mindestanzeigedauer, damit es nicht nur aufblitzt) ===== */
+(function hideSplashScreen(){
+  const MIN_DISPLAY_MS = 500;
+  const elapsed = Date.now() - APP_BOOT_TIME;
+  const wait = Math.max(0, MIN_DISPLAY_MS - elapsed);
+  setTimeout(() => {
+    const splash = document.getElementById('splashScreen');
+    if(!splash) return;
+    splash.classList.add('fade-out');
+    setTimeout(() => splash.remove(), 350);
+  }, wait);
+})();
