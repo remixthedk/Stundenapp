@@ -1257,17 +1257,21 @@ document.getElementById('saveDay').addEventListener('click', () => {
     if(items.length === 0){ toast('Mindestens einen Eintrag hinzufügen'); return; }
     const negativeItem = items.find(i => i.stunden < 0);
     if(negativeItem){ toast(`Stunden bei "${negativeItem.kunde||'Büroarbeiten'}" dürfen nicht negativ sein`); return; }
+    const tooLongItem = items.find(i => i.stunden > 24);
+    if(tooLongItem){ toast(`${fmtHours(tooLongItem.stunden)} Std bei "${tooLongItem.kunde||'Büroarbeiten'}" ist nicht gültig – ein Tag hat maximal 24 Std`); return; }
     const dayTotalHours = items.reduce((s,i)=>s+i.stunden,0);
     if(dayTotalHours > 24){
-      const ok = window.confirm(`Tagessumme liegt bei ${fmtHours(dayTotalHours)} Std – das ist mehr als ein Tag hat. Trotzdem speichern?`);
-      if(!ok) return;
+      toast(`Tagessumme liegt bei ${fmtHours(dayTotalHours)} Std – ein Tag hat maximal 24 Std, bitte korrigieren`);
+      return;
     }
     record.start = document.getElementById('dayStart').value;
     record.end = document.getElementById('dayEnd').value;
     record.pause = parseFloat(document.getElementById('dayPause').value) || 0;
     record.items = items;
   } else if(type === 'abbau'){
-    record.abbauStunden = parseFloat(document.getElementById('abbauStunden').value) || 0;
+    const abbauVal = parseFloat(document.getElementById('abbauStunden').value) || 0;
+    if(Math.abs(abbauVal) > 24){ toast(`${fmtHours(abbauVal)} Std ist nicht gültig – maximal ±24 Std pro Tag`); return; }
+    record.abbauStunden = abbauVal;
   }
 
   days = days.filter(d => d.date !== date); // replace if exists
@@ -2833,6 +2837,9 @@ const CHANGELOG = {
   'v76': [
     '"Weiter"-Button in der Einführung verkleinert (war vorher unnötig breit über die volle Bildschirmbreite).',
   ],
+  'v77': [
+    'Stunden-Eingabe wird jetzt echt geprüft: Werte über 24 Std (z.B. aus Versehen "99" statt "9") werden nicht mehr nur mit einer wegklickbaren Nachfrage akzeptiert, sondern als klarer Fehler abgelehnt.',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -2878,7 +2885,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v76'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v77'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
