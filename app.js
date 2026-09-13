@@ -2605,6 +2605,9 @@ const CHANGELOG = {
   'v62': [
     'App-Icon überarbeitet: nutzt jetzt nur noch das Haus-Symbol des neuen Logos statt des vollen Schriftzugs – deutlich besser erkennbar auf dem Homescreen.',
   ],
+  'v63': [
+    'Neu: eigenes einfarbiges App-Icon für Androids "Themen-Symbole" (Material You) – bleibt jetzt auch bei eingefärbten Icons klar als Haus-Symbol erkennbar, statt zu verblassen.',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -2650,7 +2653,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v62'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v63'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
