@@ -73,7 +73,7 @@ const DEFAULT_SETTINGS = {
   monThuStart:'07:00', monThuEnd:'16:15', monThuPause:60,
   friStart:'07:00', friEnd:'12:30', friPause:30,
   darkMode:false, lastBackupAt:null, urlaubstage:30,
-  pinEnabled:false, pinHash:null, emailRecipient:'stunden@john-haustechnik.net',
+  emailRecipient:'stunden@john-haustechnik.net',
   showOfficeShare:false,
   tileUrlaub:true, tileKrank:true, tileSchule:true, tileAbbau:true, tileKunden:true
 };
@@ -1257,12 +1257,6 @@ document.getElementById('closeDayModal').addEventListener('click', closeDayModal
 dayModal.addEventListener('click', (e) => { if(e.target === dayModal) closeDayModal(); });
 
 /* ===== Settings Modal ===== */
-function simpleHash(str){
-  let h = 0;
-  for(let i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i)) >>> 0; }
-  return h.toString(36);
-}
-
 function openSettings(){
   initExportUI();
   document.getElementById('setName').value = settings.name;
@@ -1286,11 +1280,6 @@ function openSettings(){
   document.getElementById('setTileOvertime').checked = settings.tileOvertime !== false;
   document.getElementById('setTileKunden').checked = settings.tileKunden !== false;
   document.getElementById('setDarkMode').checked = !!settings.darkMode;
-  document.getElementById('setPinEnabled').checked = !!settings.pinEnabled;
-  document.getElementById('setPinNew').value = '';
-  document.getElementById('setPinConfirm').value = '';
-  document.getElementById('pinSetupFields').style.display = settings.pinEnabled ? 'block' : 'none';
-  document.getElementById('pinExistingHint').style.display = (settings.pinEnabled && settings.pinHash) ? 'block' : 'none';
   document.getElementById('lastBackupInfo').textContent = settings.lastBackupAt
     ? `Letzte Sicherung: ${new Date(settings.lastBackupAt).toLocaleString('de-DE')}`
     : 'Noch keine Sicherung erstellt.';
@@ -1300,33 +1289,11 @@ document.getElementById('btnSettings').addEventListener('click', openSettings);
 document.getElementById('closeSettings').addEventListener('click', () => settingsModal.classList.remove('open'));
 settingsModal.addEventListener('click', (e) => { if(e.target === settingsModal) settingsModal.classList.remove('open'); });
 
-document.getElementById('setPinEnabled').addEventListener('change', (e) => {
-  document.getElementById('pinSetupFields').style.display = e.target.checked ? 'block' : 'none';
-});
-
 function applyDarkMode(){
   document.body.classList.toggle('dark', !!settings.darkMode);
 }
 
 document.getElementById('saveSettings').addEventListener('click', () => {
-  const pinEnabled = document.getElementById('setPinEnabled').checked;
-  const pinNew = document.getElementById('setPinNew').value.trim();
-  const pinConfirm = document.getElementById('setPinConfirm').value.trim();
-
-  let pinHash = settings.pinHash;
-  if(pinEnabled){
-    if(pinNew || pinConfirm){
-      if(!/^\d{4}$/.test(pinNew)){ toast('PIN muss genau 4 Ziffern haben'); return; }
-      if(pinNew !== pinConfirm){ toast('PINs stimmen nicht überein'); return; }
-      pinHash = simpleHash(pinNew);
-    } else if(!pinHash){
-      toast('Bitte einen PIN festlegen');
-      return;
-    }
-  } else {
-    pinHash = null;
-  }
-
   const urlaubstageRaw = parseFloat(document.getElementById('setUrlaubstage').value) || 0;
   if(urlaubstageRaw < 0){ toast('Jahresurlaubstage können nicht negativ sein'); return; }
   const urlaubVorAppRaw = parseFloat(document.getElementById('setUrlaubVorApp').value) || 0;
@@ -1356,7 +1323,6 @@ document.getElementById('saveSettings').addEventListener('click', () => {
     tileOvertime: document.getElementById('setTileOvertime').checked,
     tileKunden: document.getElementById('setTileKunden').checked,
     darkMode: document.getElementById('setDarkMode').checked,
-    pinEnabled, pinHash,
   };
   const saveOk = saveSettings(settings);
   applyDarkMode();
@@ -2267,41 +2233,6 @@ function showUpdateBanner(){
   });
 }
 
-/* ===== App-Sperre (PIN) ===== */
-function checkAppLock(){
-  if(!settings.pinEnabled || !settings.pinHash) return;
-  if(sessionStorage.getItem('sz_unlocked') === '1') return;
-
-  const lockScreen = document.getElementById('lockScreen');
-  const pinInput = document.getElementById('lockPinInput');
-  const errorEl = document.getElementById('lockPinError');
-  lockScreen.style.display = 'flex';
-  setTimeout(() => pinInput.focus(), 200);
-
-  pinInput.addEventListener('input', () => {
-    errorEl.style.display = 'none';
-    if(pinInput.value.length === 4){
-      if(simpleHash(pinInput.value) === settings.pinHash){
-        sessionStorage.setItem('sz_unlocked', '1');
-        lockScreen.style.display = 'none';
-      } else {
-        errorEl.style.display = 'block';
-        pinInput.value = '';
-      }
-    }
-  });
-
-  document.getElementById('lockPinForgot').addEventListener('click', () => {
-    const ok = window.confirm('PIN zurücksetzen? Die App-Sperre wird deaktiviert. Deine Stundendaten bleiben dabei vollständig erhalten – du kannst die Sperre in den Einstellungen jederzeit neu einrichten.');
-    if(!ok) return;
-    settings = {...settings, pinEnabled:false, pinHash:null};
-    const saveOk = saveSettings(settings);
-    sessionStorage.setItem('sz_unlocked', '1');
-    lockScreen.style.display = 'none';
-    toast(saveOk ? 'App-Sperre entfernt' : '⚠️ Konnte nicht gespeichert werden – Sperre bleibt evtl. beim nächsten Öffnen aktiv');
-  });
-}
-
 /* ===== Auswahlmodus & Tage teilen ===== */
 document.getElementById('toggleSelectMode').addEventListener('click', () => {
   selectMode = !selectMode;
@@ -2846,6 +2777,13 @@ const CHANGELOG = {
   'v68': [
     'Neu: eigener Splash-Screen beim Start mit großem Logo statt kurzem weißen Blitz.',
   ],
+  'v72': [
+    'PDF (Standard): Urlaub, Krankheit, Schule, Feiertag und Abbau werden jetzt deutlich größer und auffälliger gekennzeichnet – auf einen Blick erkennbar, nicht mehr zu übersehen.',
+  ],
+  'v73': [
+    'PIN-Sperre entfernt – bot ohnehin keine echte Sicherheit (über "PIN vergessen" jederzeit umgehbar), nur unnötige Komplexität.',
+    'Hilfe-Seite aktualisiert: Feiertag als Tagestyp ergänzt, neuer Abschnitt zur Überstunden-Bilanz, Kundenverwaltung und "Zuletzt geteilt" ergänzt, Buttons-Liste aktuell.',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -2891,7 +2829,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v71'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v73'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
@@ -2912,7 +2850,6 @@ const logoImg = new Image();
 logoImg.src = 'logo.png';
 
 render();
-checkAppLock();
 checkOnboarding();
 checkChangelog();
 checkAutoSnapshot();

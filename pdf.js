@@ -122,6 +122,7 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
   const TABLEHEAD_H = 6;
   const FOOTER_H = 10;
   const ROW_H = 5.7;
+  const SPECIAL_ROW_H = 14; // deutlich größere Zeile für Urlaub/Krankheit/Schule/Feiertag/Abbau
   const DAY_GAP = 3.2;
   const BOTTOMBAR_H = 9;
 
@@ -138,7 +139,9 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
 
   monthDays.forEach(day => {
     const rows = dayRows(day);
-    const blockH = (rows.length + 1) * ROW_H + DAY_GAP;
+    const isSpecial = day.type !== 'work';
+    const contentH = isSpecial ? SPECIAL_ROW_H : rows.length * ROW_H;
+    const blockH = contentH + ROW_H + DAY_GAP;
     if(current.length > 0 && usedH + blockH > availableBase){
       pages.push(current);
       current = [];
@@ -211,7 +214,9 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
       const dt = new Date(day.date + 'T00:00:00');
       const wk = isoWeek(dt);
       const rows = dayRows(day);
-      const blockH = (rows.length + 1) * ROW_H;
+      const isSpecial = day.type !== 'work';
+      const contentH = isSpecial ? SPECIAL_ROW_H : rows.length * ROW_H;
+      const blockH = contentH + ROW_H;
       const blockTop = y;
 
       const bg = stripeToggle ? STRIPE_A : STRIPE_B;
@@ -228,22 +233,30 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
       doc.setFont('helvetica','normal'); doc.setTextColor(...MUTED);
       doc.text(String(wk), colKw+1, yy+4.0);
 
-      rows.forEach((row, rIdx) => {
-        doc.setFont('helvetica', row.italic ? 'italic' : 'normal');
-        doc.setFontSize(8.3); doc.setTextColor(...TEXT_DARK);
-        doc.text(truncateToWidth(doc, row.desc, descMaxW), colDesc, yy+4.0);
-        if(row.zuschlag){
-          doc.setFont('helvetica','bold'); doc.setTextColor(...PRIMARY);
-          doc.text(row.zuschlag, colZuschlagRight, yy+4.0, {align:'right'});
-        }
-        doc.setFont('helvetica','normal'); doc.setTextColor(...TEXT_DARK);
-        doc.text(pdfFmtHours(row.hours), M+contentW-2, yy+4.0, {align:'right'});
-        yy += ROW_H;
-        if(rIdx < rows.length-1){
-          doc.setDrawColor(214,217,214); doc.setLineWidth(0.15);
-          doc.line(colDesc-2, yy-1.3, M+contentW-2, yy-1.3);
-        }
-      });
+      if(isSpecial){
+        // Große, unübersehbare Kennzeichnung statt kleiner Fließtext-Zeile (unter der Datumszeile)
+        doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(...PRIMARY);
+        const bigTextY = blockTop + 5.5 + (contentH-5.5)/2 + 2.2;
+        doc.text(rows[0].desc.toUpperCase(), M + contentW/2, bigTextY, {align:'center'});
+        yy = blockTop + contentH;
+      } else {
+        rows.forEach((row, rIdx) => {
+          doc.setFont('helvetica','normal');
+          doc.setFontSize(8.3); doc.setTextColor(...TEXT_DARK);
+          doc.text(truncateToWidth(doc, row.desc, descMaxW), colDesc, yy+4.0);
+          if(row.zuschlag){
+            doc.setFont('helvetica','bold'); doc.setTextColor(...PRIMARY);
+            doc.text(row.zuschlag, colZuschlagRight, yy+4.0, {align:'right'});
+          }
+          doc.setFont('helvetica','normal'); doc.setTextColor(...TEXT_DARK);
+          doc.text(pdfFmtHours(row.hours), M+contentW-2, yy+4.0, {align:'right'});
+          yy += ROW_H;
+          if(rIdx < rows.length-1){
+            doc.setDrawColor(214,217,214); doc.setLineWidth(0.15);
+            doc.line(colDesc-2, yy-1.3, M+contentW-2, yy-1.3);
+          }
+        });
+      }
 
       doc.setDrawColor(...PRIMARY); doc.setLineWidth(0.3);
       doc.line(colDesc-2, yy, M+contentW-2, yy);

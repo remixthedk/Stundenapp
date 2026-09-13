@@ -466,15 +466,6 @@
   <button type="button" id="onboardingNext" class="btn primary" style="width:100%;">Weiter</button>
 </div>
 
-<div id="lockScreen" style="display:none;position:fixed;inset:0;z-index:300;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;padding:24px;">
-  <div style="font-size:44px;margin-bottom:10px;">🔒</div>
-  <div style="font-weight:600;font-size:16px;margin-bottom:18px;color:var(--text);">App gesperrt</div>
-  <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="lockPinInput"
-    style="width:150px;text-align:center;font-size:26px;letter-spacing:10px;padding:12px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text);">
-  <div id="lockPinError" style="color:var(--danger);font-size:12.5px;margin-top:10px;display:none;">Falscher PIN, nochmal versuchen</div>
-  <button type="button" id="lockPinForgot" style="background:none;border:none;color:var(--muted);font-size:12.5px;margin-top:22px;text-decoration:underline;">PIN vergessen?</button>
-</div>
-
 
 <header class="topbar">
   <div style="display:flex;align-items:center;gap:11px;">
@@ -659,32 +650,6 @@
       <div class="settings-group-body">
         <div class="settings-hint" style="margin-top:0;">Namen korrigieren oder zusammenführen – wirkt sich rückwirkend auf alle bisherigen Einträge aus.</div>
         <button type="button" class="btn secondary" id="btnManageKunden" style="width:100%;margin-top:10px;">Kunden verwalten</button>
-      </div>
-    </div>
-
-    <!-- Sicherheit -->
-    <div class="settings-group">
-      <button type="button" class="settings-group-head">
-        <span>🔒 Sicherheit</span><span class="chev">▾</span>
-      </button>
-      <div class="settings-group-body">
-        <div class="toggle-row">
-          <div>
-            <label style="margin:0;">App-Sperre (PIN)</label>
-            <div class="settings-hint" style="margin-top:2px;">Fragt beim Öffnen einen 4-stelligen Code ab.</div>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="setPinEnabled">
-            <span class="slider"></span>
-          </label>
-        </div>
-        <div id="pinSetupFields" style="display:none;margin-top:10px;">
-          <label>Neuer PIN (4 Ziffern)</label>
-          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="setPinNew" placeholder="••••">
-          <label>PIN bestätigen</label>
-          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="setPinConfirm" placeholder="••••">
-          <div class="settings-hint" id="pinExistingHint" style="display:none;">Bereits eingerichtet – leer lassen, um den PIN nicht zu ändern.</div>
-        </div>
       </div>
     </div>
 
@@ -1090,13 +1055,28 @@
         </p>
         <p style="font-size:13px;line-height:1.6;margin:0 0 10px;">
           <b>Arbeit</b> – Kunde, Tätigkeit und Stunden eintragen, beliebig viele Einträge pro Tag.<br>
-          <b>Urlaub / Krankheit / Schule</b> – einfach den Tag markieren, zählt automatisch 0 Std.<br>
+          <b>Urlaub / Krankheit / Schule / Feiertag</b> – einfach den Tag markieren, zählt automatisch 0 Std.<br>
           <b>Überstundenabbau</b> – Stunden eintragen (negativ für Abbau, z.B. -5).
         </p>
         <p style="font-size:13px;line-height:1.6;margin:0;">
-          <b>Mehrere Tage auf einmal:</b> Bei Urlaub/Krankheit/Schule den Schalter "Zeitraum"
+          <b>Mehrere Tage auf einmal:</b> Bei Urlaub/Krankheit/Schule/Feiertag den Schalter "Zeitraum"
           aktivieren und Von–Bis wählen – legt automatisch alle Werktage an (Wochenenden und
           Feiertage werden übersprungen).
+        </p>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <button type="button" class="settings-group-head">
+        <span>📈 Überstunden-Bilanz</span><span class="chev">▾</span>
+      </button>
+      <div class="settings-group-body">
+        <p style="font-size:13px;line-height:1.6;margin:0;">
+          Läuft automatisch mit: Jeder Arbeitstag wird mit deiner hinterlegten Soll-Arbeitszeit
+          verglichen (Ist minus Soll). Urlaub, Krankheit, Schule, Feiertag und Tage ohne Eintrag
+          zählen nicht mit. Manuelle Überstundenabbau-Einträge fließen direkt mit in denselben
+          Saldo ein. Der laufende Gesamtstand steht als Dashboard-Kachel "Überstunden" auf der
+          Hauptseite (⚙ → Darstellung ein-/ausschaltbar) sowie als Verlauf in der Jahresübersicht.
         </p>
       </div>
     </div>
@@ -1107,9 +1087,10 @@
       </button>
       <div class="settings-group-body">
         <div class="help-btn-row"><span>📊</span><div>Jahresübersicht – Urlaubskonto, Diagramme, Top-Kunden</div></div>
-        <div class="help-btn-row"><span>🔍</span><div>Suche über alle Monate hinweg</div></div>
-        <div class="help-btn-row"><span>⚙</span><div>Einstellungen (Profil, Export, Sicherheit, Hilfe ...)</div></div>
+        <div class="help-btn-row"><span>🔍</span><div>Suche über alle Monate hinweg (auch Notizen)</div></div>
+        <div class="help-btn-row"><span>⚙</span><div>Einstellungen (Export, Profil, Arbeitszeiten, Kunden, Darstellung, Datensicherung, Zuletzt geteilt, Hilfe, Über diese App)</div></div>
         <div class="help-btn-row"><span>🔓 / 🔒</span><div>Monat abschließen bzw. wieder entsperren</div></div>
+        <div class="help-btn-row"><span>KW / Σ</span><div>Kalenderwochen-Nummer bzw. Wochensumme im Kalender ein-/ausblenden</div></div>
         <div class="help-btn-row"><span>☑</span><div>"Auswählen" – mehrere Tage markieren, um sie zu teilen</div></div>
         <div class="help-btn-row"><span>🌙 / 🧹</span><div>Nachtarbeit / Schmutzzulage kennzeichnen (wird im PDF markiert)</div></div>
         <div class="help-btn-row"><span>📝</span><div>Notiz – nur in der App sichtbar, erscheint nicht im PDF/CSV/Excel</div></div>
@@ -1136,15 +1117,10 @@
           Faustregel: einmal im Monat, am besten direkt nach dem PDF-Export. Das ist der einzige
           Schutz bei Handy-Verlust oder -Defekt.
         </p>
-        <p style="font-size:13px;line-height:1.6;margin:0 0 10px;">
+        <p style="font-size:13px;line-height:1.6;margin:0;">
           <b>iPhone/iPad-Nutzer:</b> Safari kann bei sehr langer Nichtnutzung (mehrere Wochen)
           lokale Daten von Websites automatisch löschen. Die App erinnert dich deshalb auf
           iOS-Geräten schon nach 10 statt 30 Tagen an ein Backup.
-        </p>
-        <p style="font-size:13px;line-height:1.6;margin:0;">
-          <b>PIN vergessen?</b> Falls die App-Sperre aktiv ist und du den Code vergisst: auf dem
-          Sperrbildschirm auf "PIN vergessen?" tippen – setzt nur die Sperre zurück, deine
-          Stundendaten bleiben dabei vollständig erhalten.
         </p>
       </div>
     </div>
@@ -1160,11 +1136,21 @@
           für lange Zeiträume wie ein ganzes Jahr, <b>CSV/Excel</b> für die Weiterverarbeitung
           am Computer.
         </p>
-        <p style="font-size:13px;line-height:1.6;margin:0;">
+        <p style="font-size:13px;line-height:1.6;margin:0 0 10px;">
           <b>Einzelne Tage mit Kollegen teilen:</b> Auf der Hauptseite "☑ Auswählen" antippen,
           gewünschte Tage anhaken (funktioniert auch über mehrere Monate hinweg), dann
           "Auswahl teilen" → Datei herunterladen → per WhatsApp/Mail weitergeben. Der Kollege
           importiert sie über ⚙ → "Geteilte Tage importieren".
+        </p>
+        <p style="font-size:13px;line-height:1.6;margin:0 0 10px;">
+          <b>Alte Exporte erneut abrufen:</b> Unter ⚙ → "Zuletzt geteilt" stehen die letzten 5
+          Sicherungen/geteilten Tage sowie die letzten 5 PDF/CSV/Excel-Exporte zum erneuten
+          Laden bereit.
+        </p>
+        <p style="font-size:13px;line-height:1.6;margin:0;">
+          <b>Kundennamen aufräumen:</b> Unter ⚙ → "Kunden" lassen sich Tippfehler oder doppelt
+          erfasste Kundennamen zusammenführen – wirkt sich rückwirkend auf alle bisherigen
+          Einträge aus.
         </p>
       </div>
     </div>
