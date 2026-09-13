@@ -617,6 +617,9 @@
         <input type="number" id="setUrlaubVorApp" placeholder="0" step="1" min="0">
         <label>Überstunden-Saldo beim Einstieg (negativ für Minusstunden, z.B. -5)</label>
         <input type="number" id="setOvertimeStart" placeholder="0" step="0.25">
+        <label>Stichtag der Startwerte</label>
+        <input type="date" id="setBalanceCutoff">
+        <div class="settings-hint" style="margin-top:4px;">Trägst du später Tage <b>vor</b> diesem Datum nach (z.B. einen alten Stundenzettel importieren), zählen die nicht nochmal automatisch mit – sonst würden sie doppelt gerechnet.</div>
       </div>
     </div>
 
@@ -1076,12 +1079,19 @@
         <span>📈 Überstunden-Bilanz</span><span class="chev">▾</span>
       </button>
       <div class="settings-group-body">
-        <p style="font-size:13px;line-height:1.6;margin:0;">
+        <p style="font-size:13px;line-height:1.6;margin:0 0 10px;">
           Läuft automatisch mit: Jeder Arbeitstag wird mit deiner hinterlegten Soll-Arbeitszeit
           verglichen (Ist minus Soll). Urlaub, Krankheit, Schule, Feiertag und Tage ohne Eintrag
           zählen nicht mit. Manuelle Überstundenabbau-Einträge fließen direkt mit in denselben
           Saldo ein. Der laufende Gesamtstand steht als Dashboard-Kachel "Überstunden" auf der
           Hauptseite (⚙ → Darstellung ein-/ausschaltbar) sowie als Verlauf in der Jahresübersicht.
+        </p>
+        <p style="font-size:13px;line-height:1.6;margin:0;">
+          <b>Stichtag:</b> Bei der Ersteinrichtung hinterlegte Startwerte (Urlaub/Überstunden)
+          gelten immer "ab einem bestimmten Datum". Trägst du später doch noch Tage von
+          <b>vor</b> diesem Stichtag nach (z.B. einen alten Stundenzettel importieren), werden
+          die automatisch <b>nicht</b> nochmal mitgezählt – sonst gäbe es Doppelzählungen. Der
+          Stichtag lässt sich unter ⚙ → Profil jederzeit einsehen/anpassen.
         </p>
       </div>
     </div>

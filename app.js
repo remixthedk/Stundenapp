@@ -74,6 +74,7 @@ const DEFAULT_SETTINGS = {
   friStart:'07:00', friEnd:'12:30', friPause:30,
   darkMode:false, lastBackupAt:null, urlaubstage:30,
   emailRecipient:'stunden@john-haustechnik.net',
+  balanceCutoffDate: toISODate(new Date()),
   showOfficeShare:false,
   tileUrlaub:true, tileKrank:true, tileSchule:true, tileAbbau:true, tileKunden:true
 };
@@ -694,7 +695,9 @@ function overtimeDiffForDay(d){
   return 0;
 }
 function computeOvertimeBalance(daysList){
-  return (settings.overtimeStartBalance || 0) + daysList.reduce((sum,d) => sum + overtimeDiffForDay(d), 0);
+  const cutoff = settings.balanceCutoffDate || '';
+  const relevant = cutoff ? daysList.filter(d => d.date >= cutoff) : daysList;
+  return (settings.overtimeStartBalance || 0) + relevant.reduce((sum,d) => sum + overtimeDiffForDay(d), 0);
 }
 
 function applyReadOnlyMode(readOnly){
@@ -1299,6 +1302,7 @@ function openSettings(){
   document.getElementById('setUrlaubstage').value = settings.urlaubstage != null ? settings.urlaubstage : 30;
   document.getElementById('setUrlaubVorApp').value = settings.urlaubVorAppStart || 0;
   document.getElementById('setOvertimeStart').value = settings.overtimeStartBalance || 0;
+  document.getElementById('setBalanceCutoff').value = settings.balanceCutoffDate || '';
   document.getElementById('setEmailRecipient').value = settings.emailRecipient || '';
   document.getElementById('setMonThuStart').value = settings.monThuStart;
   document.getElementById('setMonThuEnd').value = settings.monThuEnd;
@@ -1333,6 +1337,7 @@ document.getElementById('saveSettings').addEventListener('click', () => {
   const urlaubVorAppRaw = parseFloat(document.getElementById('setUrlaubVorApp').value) || 0;
   if(urlaubVorAppRaw < 0){ toast('Bereits genommene Urlaubstage können nicht negativ sein'); return; }
   const overtimeStartRaw = parseFloat(document.getElementById('setOvertimeStart').value) || 0;
+  const balanceCutoffRaw = document.getElementById('setBalanceCutoff').value || '';
 
   settings = {
     ...settings,
@@ -1341,6 +1346,7 @@ document.getElementById('saveSettings').addEventListener('click', () => {
     city: document.getElementById('setCity').value.trim(),
     urlaubstage: urlaubstageRaw,
     urlaubVorAppStart: urlaubVorAppRaw,
+    balanceCutoffDate: balanceCutoffRaw,
     overtimeStartBalance: overtimeStartRaw,
     emailRecipient: document.getElementById('setEmailRecipient').value.trim(),
     monThuStart: document.getElementById('setMonThuStart').value,
@@ -1668,7 +1674,8 @@ function renderAnalytics(){
   const carryIn = computeUrlaubCarryIn(analyticsYear);
   const urlaubGesamt = urlaubBasis + carryIn;
   const preAppGenommen = (analyticsYear === firstDataYear(analyticsYear)) ? (settings.urlaubVorAppStart || 0) : 0;
-  const urlaubGenommen = yearDays.filter(d=>d.type==='urlaub').length + preAppGenommen;
+  const cutoffForUrlaub = settings.balanceCutoffDate || '';
+  const urlaubGenommen = yearDays.filter(d=>d.type==='urlaub' && (!cutoffForUrlaub || d.date >= cutoffForUrlaub)).length + preAppGenommen;
   const urlaubRest = urlaubGesamt - urlaubGenommen; // kann jetzt negativ sein (Vorgriff)
   const krankTage = yearDays.filter(d=>d.type==='krankheit').length;
   const schuleTage = yearDays.filter(d=>d.type==='schule').length;
@@ -1811,9 +1818,10 @@ function renderAbbauSaldoChart(){
   }
 
   let running = settings.overtimeStartBalance || 0;
+  const cutoff = settings.balanceCutoffDate || '';
   const points = [];
   relevantDays.forEach(d => {
-    running += overtimeDiffForDay(d);
+    if(!cutoff || d.date >= cutoff) running += overtimeDiffForDay(d);
     if(fromISODate(d.date).getFullYear() === analyticsYear) points.push(running);
   });
 
@@ -2553,7 +2561,7 @@ const ONBOARDING_SLIDES = [
   { type:'info', icon:'👋', title:'Willkommen!', text:'Dein digitaler Stundenzettel für John Haustechnik GmbH & Co KG – entwickelt von Marcus Lüschen. Alle Daten bleiben nur auf deinem Handy.' },
   { type:'form', form:'profile', title:'Deine Daten', subtitle:'Erscheint auf jedem PDF-Export.' },
   { type:'form', form:'worktimes', title:'Deine Arbeitszeiten', subtitle:'Werden beim Erfassen vorausgefüllt, bleiben pro Tag änderbar.' },
-  { type:'form', form:'balances', title:'Urlaub & Überstunden', subtitle:'Steigst du mitten im Jahr ein: hier deinen aktuellen Stand eintragen.' },
+  { type:'form', form:'balances', title:'Urlaub & Überstunden', subtitle:'Steigst du mitten im Jahr ein: hier deinen aktuellen Stand eintragen. Wichtig: Trägst du später mal Tage von VOR dem Stichtag nach (z.B. einen alten Stundenzettel importieren), werden die automatisch nicht nochmal mitgezählt – sonst gäbe es Doppelzählungen.' },
   { type:'info', icon:'📅', title:'Tage erfassen', text:'Einfach im Kalender oben auf einen Tag tippen – Arbeit, Urlaub, Krankheit, Schule oder Überstundenabbau eintragen.' },
   { type:'info', icon:'💾', title:'Nicht vergessen', text:'Erstelle ab und zu eine Sicherung in den Einstellungen (⚙) – sonst sind deine Daten bei Handy-Verlust unwiederbringlich weg.' },
   { type:'info', icon:'❓', title:'Hilfe griffbereit', text:'Fragen? Unter ⚙ Einstellungen findest du oben den Button "❓ Hilfe" mit allen wichtigen Infos – jederzeit abrufbar.' },
@@ -2578,6 +2586,7 @@ const ONBOARDING_FORM_FIELDS = {
     {id:'obUrlaubstage', label:'Jahresurlaubstage', type:'number', settingsKey:'urlaubstage', placeholder:'z.B. 30'},
     {id:'obUrlaubVorApp', label:'Urlaubstage schon genommen (dieses Jahr, vor App-Nutzung)', type:'number', settingsKey:'urlaubVorAppStart', placeholder:'0'},
     {id:'obOvertimeStart', label:'Überstunden-Saldo beim Einstieg', type:'number', settingsKey:'overtimeStartBalance', placeholder:'0', step:'0.25'},
+    {id:'obBalanceCutoff', label:'Stichtag der Startwerte', type:'date', settingsKey:'balanceCutoffDate'},
   ],
 };
 
@@ -2818,6 +2827,9 @@ const CHANGELOG = {
     'PIN-Sperre entfernt – bot ohnehin keine echte Sicherheit (über "PIN vergessen" jederzeit umgehbar), nur unnötige Komplexität.',
     'Hilfe-Seite aktualisiert: Feiertag als Tagestyp ergänzt, neuer Abschnitt zur Überstunden-Bilanz, Kundenverwaltung und "Zuletzt geteilt" ergänzt, Buttons-Liste aktuell.',
   ],
+  'v75': [
+    'Neu: "Stichtag" bei den Urlaub-/Überstunden-Startwerten (⚙ → Profil, auch in der Einführung). Verhindert, dass später nachgetragene alte Tage (z.B. ein importierter alter Stundenzettel) versehentlich doppelt in die automatische Bilanz einfließen.',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -2863,7 +2875,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v74'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v75'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
