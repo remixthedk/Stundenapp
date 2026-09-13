@@ -2830,6 +2830,9 @@ const CHANGELOG = {
   'v75': [
     'Neu: "Stichtag" bei den Urlaub-/Überstunden-Startwerten (⚙ → Profil, auch in der Einführung). Verhindert, dass später nachgetragene alte Tage (z.B. ein importierter alter Stundenzettel) versehentlich doppelt in die automatische Bilanz einfließen.',
   ],
+  'v76': [
+    '"Weiter"-Button in der Einführung verkleinert (war vorher unnötig breit über die volle Bildschirmbreite).',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -2875,7 +2878,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v75'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v76'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
