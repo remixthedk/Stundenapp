@@ -76,7 +76,8 @@ const DEFAULT_SETTINGS = {
   emailRecipient:'stunden@john-haustechnik.net',
   balanceCutoffDate: toISODate(new Date()),
   showOfficeShare:false,
-  tileUrlaub:true, tileKrank:true, tileSchule:true, tileAbbau:true, tileKunden:true
+  tileUrlaub:true, tileKrank:true, tileSchule:true, tileAbbau:true, tileKunden:true,
+  todayProgressStyle:'ring'
 };
 
 function isStorageAvailable(){
@@ -307,15 +308,37 @@ function renderTodayStatus(){
   const soll = ((eh*60+em) - (sh*60+sm) - (dft.pause||0)) / 60;
   if(soll <= 0){ el.style.display = 'none'; return; }
 
+  const style = settings.todayProgressStyle || 'ring';
+  if(style === 'off'){
+    el.style.display = 'none';
+    return;
+  }
+
   const ist = entry ? dayTotal(entry) : 0;
   const pct = Math.max(0, Math.min(100, Math.round((ist/soll)*100)));
-
-  const R = 22, C = 2*Math.PI*R;
-  const offset = C - (pct/100)*C;
   const isDark = document.body.classList.contains('dark');
   const trackColor = isDark ? '#2C3236' : '#E7EAEC';
 
   el.style.display = 'flex';
+
+  if(style === 'bar'){
+    el.innerHTML = `
+      <div style="width:100%;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+          <div style="font-size:12px;color:var(--muted);">Heute erfasst</div>
+          <div style="font-size:13px;"><b style="color:var(--text)">${fmtHours(ist)}</b> von ${fmtHours(soll)} Std <span style="color:var(--primary);font-weight:700;">(${pct}%)</span></div>
+        </div>
+        <div style="margin-top:6px;height:8px;border-radius:4px;background:${trackColor};overflow:hidden;">
+          <div style="height:100%;width:${pct}%;border-radius:4px;background:var(--primary);"></div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  // Ring (Standard)
+  const R = 22, C = 2*Math.PI*R;
+  const offset = C - (pct/100)*C;
   el.innerHTML = `
     <svg width="56" height="56" viewBox="0 0 56 56" style="flex-shrink:0;transform:rotate(-90deg);">
       <circle cx="28" cy="28" r="${R}" fill="none" stroke="${trackColor}" stroke-width="6"/>
@@ -1337,6 +1360,7 @@ function openSettings(){
   document.getElementById('setTileOvertime').checked = settings.tileOvertime !== false;
   document.getElementById('setTileKunden').checked = settings.tileKunden !== false;
   document.getElementById('setDarkMode').checked = !!settings.darkMode;
+  document.getElementById('setTodayProgressStyle').value = settings.todayProgressStyle || 'ring';
   document.getElementById('lastBackupInfo').textContent = settings.lastBackupAt
     ? `Letzte Sicherung: ${new Date(settings.lastBackupAt).toLocaleString('de-DE')}`
     : 'Noch keine Sicherung erstellt.';
@@ -1382,6 +1406,7 @@ document.getElementById('saveSettings').addEventListener('click', () => {
     tileOvertime: document.getElementById('setTileOvertime').checked,
     tileKunden: document.getElementById('setTileKunden').checked,
     darkMode: document.getElementById('setDarkMode').checked,
+    todayProgressStyle: document.getElementById('setTodayProgressStyle').value,
   };
   const saveOk = saveSettings(settings);
   applyDarkMode();
@@ -2926,6 +2951,9 @@ const CHANGELOG = {
   'v80': [
     'Neu: Sortierreihenfolge der Tagesliste unter dem Kalender umschaltbar (Älteste/Neueste zuerst) – Schalter direkt neben "Einträge im Monat".',
   ],
+  'v81': [
+    'Neu: Anzeige des Tagesfortschritts auf der Hauptseite umschaltbar – Ring, Balken oder ganz ausblenden (⚙ → Darstellung).',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -2971,7 +2999,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v80'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v81'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
