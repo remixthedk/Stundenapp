@@ -436,6 +436,7 @@ function populateKundenDatalist(){
 /* ===== Rendering: calendar grid ===== */
 let showKW = localStorage.getItem('sz_show_kw') === '1';
 let showWeekSum = localStorage.getItem('sz_show_weeksum') !== '0'; // Standard: an
+let listSortDescending = localStorage.getItem('sz_list_sort_desc') === '1';
 let selectMode = false;
 let selectedDates = new Set();
 
@@ -544,6 +545,14 @@ document.getElementById('toggleWeekSum').addEventListener('click', () => {
 });
 document.getElementById('toggleWeekSum').textContent = showWeekSum ? 'Σ ausblenden' : 'Σ anzeigen';
 
+document.getElementById('toggleSortOrder').addEventListener('click', () => {
+  listSortDescending = !listSortDescending;
+  localStorage.setItem('sz_list_sort_desc', listSortDescending ? '1' : '0');
+  document.getElementById('toggleSortOrder').textContent = listSortDescending ? '↓ Neueste zuerst' : '↑ Älteste zuerst';
+  render();
+});
+document.getElementById('toggleSortOrder').textContent = listSortDescending ? '↓ Neueste zuerst' : '↑ Älteste zuerst';
+
 /* ===== Rendering: month list ===== */
 function render(){
   document.getElementById('monthLabel').textContent = `${MONTHS[viewDate.getMonth()]} ${viewDate.getFullYear()}`;
@@ -579,7 +588,13 @@ function render(){
     weeks[wk].push(d);
   });
 
-  Object.keys(weeks).sort((a,b)=>a-b).forEach(wk => {
+  let weekKeys = Object.keys(weeks).sort((a,b)=>a-b);
+  if(listSortDescending){
+    weekKeys = weekKeys.reverse();
+    Object.keys(weeks).forEach(wk => weeks[wk].reverse());
+  }
+
+  weekKeys.forEach(wk => {
     const list = weeks[wk];
     const weekTotal = list.reduce((s,d)=> s + dayTotal(d), 0);
 
@@ -2908,6 +2923,9 @@ const CHANGELOG = {
   'v79': [
     'Suchergebnisse teilen: jetzt einzeln per Checkbox abwählbar statt immer alle Treffer auf einmal (alle stehen vorausgewählt, "Alle abwählen" für den Gegentest).',
   ],
+  'v80': [
+    'Neu: Sortierreihenfolge der Tagesliste unter dem Kalender umschaltbar (Älteste/Neueste zuerst) – Schalter direkt neben "Einträge im Monat".',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -2953,7 +2971,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v79'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v80'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;

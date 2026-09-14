@@ -523,7 +523,10 @@
 </div>
 
 <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 16px 4px;">
-  <div class="list-heading" style="margin:0;">Einträge im Monat</div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <div class="list-heading" style="margin:0;">Einträge im Monat</div>
+    <button type="button" id="toggleSortOrder" style="background:none;border:none;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer;padding:0;">↑ Älteste zuerst</button>
+  </div>
   <button type="button" id="toggleSelectMode" class="select-toggle-btn">☑ Auswählen</button>
 </div>
 <div id="listContainer"></div>
