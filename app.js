@@ -1437,6 +1437,7 @@ function highlightWords(text, words){
   return out;
 }
 
+let currentSearchDates = [];
 function runSearch(){
   const resultsEl = document.getElementById('searchResults');
   const rawQ = document.getElementById('searchInput').value.trim().toLowerCase();
@@ -1446,7 +1447,7 @@ function runSearch(){
   const typeLabels = {urlaub:'Urlaub', krankheit:'Krankheit', schule:'Schule', feiertag:'Feiertag', abbau:'Überstundenabbau'};
 
   const hasFilters = words.length > 0 || dateFrom || dateTo || searchTypeFilter;
-  if(!hasFilters){ resultsEl.innerHTML = ''; return; }
+  if(!hasFilters){ resultsEl.innerHTML = ''; document.getElementById('btnShareSearchResults').style.display = 'none'; return; }
 
   const matchText = (text) => {
     if(words.length === 0) return true;
@@ -1476,11 +1477,18 @@ function runSearch(){
   });
 
   matches.sort((a,b)=> b.date.localeCompare(a.date));
+  const shareBtn = document.getElementById('btnShareSearchResults');
 
   if(matches.length === 0){
     resultsEl.innerHTML = `<div class="search-empty">Keine Treffer</div>`;
+    shareBtn.style.display = 'none';
+    currentSearchDates = [];
     return;
   }
+
+  currentSearchDates = Array.from(new Set(matches.map(m => m.date)));
+  shareBtn.style.display = 'block';
+  shareBtn.textContent = `📤 ${currentSearchDates.length} Tag(e) aus den Treffern teilen`;
 
   resultsEl.innerHTML = matches.map(m => {
     const dt = fromISODate(m.date);
@@ -1502,6 +1510,13 @@ function runSearch(){
     });
   });
 }
+
+document.getElementById('btnShareSearchResults').addEventListener('click', () => {
+  if(currentSearchDates.length === 0) return;
+  const selectedDays = days.filter(d => currentSearchDates.includes(d.date));
+  searchModal.classList.remove('open');
+  shareDaysAsFile(selectedDays);
+});
 
 /* ===== Hilfe ===== */
 const helpModal = document.getElementById('helpModal');
@@ -2317,9 +2332,9 @@ function saveShareHistory(list){
   catch(e){ /* Verlauf ist nur Komfort, kein kritischer Datenverlust falls das fehlschlägt */ }
 }
 
-document.getElementById('btnShareSelected').addEventListener('click', () => {
-  const selectedDays = days.filter(d => selectedDates.has(d.date)).sort((a,b)=> a.date.localeCompare(b.date));
+function shareDaysAsFile(selectedDays){
   if(selectedDays.length === 0) return;
+  selectedDays = selectedDays.slice().sort((a,b)=> a.date.localeCompare(b.date));
 
   const first = selectedDays[0].date, last = selectedDays[selectedDays.length-1].date;
 
@@ -2364,14 +2379,21 @@ document.getElementById('btnShareSelected').addEventListener('click', () => {
   }, ...history].slice(0,5);
   saveShareHistory(newHistory);
 
+  shareResultModal.classList.add('open');
+}
+
+document.getElementById('btnShareSelected').addEventListener('click', () => {
+  const selectedDays = days.filter(d => selectedDates.has(d.date));
+  if(selectedDays.length === 0) return;
+
+  shareDaysAsFile(selectedDays);
+
   selectMode = false;
   selectedDates = new Set();
   document.getElementById('toggleSelectMode').textContent = '☑ Auswählen';
   document.getElementById('toggleSelectMode').style.background = 'var(--primary)';
   updateShareSelectionBar();
   render();
-
-  shareResultModal.classList.add('open');
 });
 
 /* ===== Verlauf-Ansicht ===== */
@@ -2840,6 +2862,9 @@ const CHANGELOG = {
   'v77': [
     'Stunden-Eingabe wird jetzt echt geprüft: Werte über 24 Std (z.B. aus Versehen "99" statt "9") werden nicht mehr nur mit einer wegklickbaren Nachfrage akzeptiert, sondern als klarer Fehler abgelehnt.',
   ],
+  'v78': [
+    'Neu: Suchergebnisse lassen sich jetzt direkt teilen – Button "Treffer teilen" unter der Trefferliste, funktioniert genau wie das bekannte Teilen einzelner Tage.',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -2885,7 +2910,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v77'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v78'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
