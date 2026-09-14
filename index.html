@@ -368,7 +368,11 @@
   .search-result{
     background:var(--surface);border:1px solid var(--border);border-radius:9px;
     padding:11px 13px;margin-bottom:8px;
+    display:flex;align-items:flex-start;gap:10px;cursor:pointer;
   }
+  .search-result-check{flex-shrink:0;padding-top:2px;}
+  .search-result-check input{width:18px;height:18px;accent-color:var(--primary);}
+  .search-result .sr-body{flex:1;min-width:0;}
   .search-result .sr-top{display:flex;justify-content:space-between;font-size:13px;font-weight:600;}
   .search-result .sr-sub{font-size:12px;color:var(--muted);margin-top:3px;}
   .search-empty{text-align:center;color:var(--muted);font-size:13.5px;padding:30px 20px;}

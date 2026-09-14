@@ -1437,7 +1437,7 @@ function highlightWords(text, words){
   return out;
 }
 
-let currentSearchDates = [];
+let searchSelectedDates = new Set();
 function runSearch(){
   const resultsEl = document.getElementById('searchResults');
   const rawQ = document.getElementById('searchInput').value.trim().toLowerCase();
@@ -1482,22 +1482,32 @@ function runSearch(){
   if(matches.length === 0){
     resultsEl.innerHTML = `<div class="search-empty">Keine Treffer</div>`;
     shareBtn.style.display = 'none';
-    currentSearchDates = [];
+    searchSelectedDates = new Set();
     return;
   }
 
-  currentSearchDates = Array.from(new Set(matches.map(m => m.date)));
-  shareBtn.style.display = 'block';
-  shareBtn.textContent = `📤 ${currentSearchDates.length} Tag(e) aus den Treffern teilen`;
+  // Alle Treffer-Tage sind standardmäßig vorausgewählt, einzeln abwählbar
+  searchSelectedDates = new Set(matches.map(m => m.date));
+  updateSearchShareButton();
 
-  resultsEl.innerHTML = matches.map(m => {
-    const dt = fromISODate(m.date);
-    return `<div class="search-result" data-date="${m.date}">
-      <div class="sr-top"><span>${highlightWords(m.kunde, words)}</span><span>${fmtHours(m.stunden)} Std</span></div>
-      <div class="sr-sub">${fmtDate(dt)}${m.taetigkeit ? ' · ' + highlightWords(m.taetigkeit, words) : ''}</div>
-      ${m.notiz ? `<div class="sr-sub" style="margin-top:3px;">🗒️ ${highlightWords(m.notiz, words)} <span class="notiz-tag">nur intern</span></div>` : ''}
-    </div>`;
-  }).join('');
+  resultsEl.innerHTML = `
+    <div style="text-align:right;margin-bottom:6px;">
+      <span id="searchSelectToggleAll" style="font-size:12px;color:var(--primary);text-decoration:underline;cursor:pointer;">Alle abwählen</span>
+    </div>
+    ${matches.map(m => {
+      const dt = fromISODate(m.date);
+      return `<div class="search-result" data-date="${m.date}">
+        <label class="search-result-check" onclick="event.stopPropagation();">
+          <input type="checkbox" class="sr-checkbox" data-date="${m.date}" checked>
+        </label>
+        <div class="sr-body">
+          <div class="sr-top"><span>${highlightWords(m.kunde, words)}</span><span>${fmtHours(m.stunden)} Std</span></div>
+          <div class="sr-sub">${fmtDate(dt)}${m.taetigkeit ? ' · ' + highlightWords(m.taetigkeit, words) : ''}</div>
+          ${m.notiz ? `<div class="sr-sub" style="margin-top:3px;">🗒️ ${highlightWords(m.notiz, words)} <span class="notiz-tag">nur intern</span></div>` : ''}
+        </div>
+      </div>`;
+    }).join('')}
+  `;
 
   resultsEl.querySelectorAll('.search-result').forEach(el => {
     el.addEventListener('click', () => {
@@ -1509,11 +1519,41 @@ function runSearch(){
       openDayModal(date);
     });
   });
+
+  resultsEl.querySelectorAll('.sr-checkbox').forEach(cb => {
+    cb.addEventListener('click', (e) => e.stopPropagation());
+    cb.addEventListener('change', (e) => {
+      const date = e.target.dataset.date;
+      // Andere Zeilen mit demselben Datum synchron mitschalten (mehrere Treffer am selben Tag)
+      const stillHasCheckedForDate = Array.from(resultsEl.querySelectorAll(`.sr-checkbox[data-date="${date}"]`)).some(c => c.checked);
+      if(stillHasCheckedForDate) searchSelectedDates.add(date); else searchSelectedDates.delete(date);
+      updateSearchShareButton();
+    });
+  });
+
+  document.getElementById('searchSelectToggleAll').addEventListener('click', () => {
+    const allChecked = searchSelectedDates.size === new Set(matches.map(m=>m.date)).size;
+    resultsEl.querySelectorAll('.sr-checkbox').forEach(cb => { cb.checked = !allChecked; });
+    searchSelectedDates = allChecked ? new Set() : new Set(matches.map(m => m.date));
+    document.getElementById('searchSelectToggleAll').textContent = allChecked ? 'Alle auswählen' : 'Alle abwählen';
+    updateSearchShareButton();
+  });
+}
+
+function updateSearchShareButton(){
+  const shareBtn = document.getElementById('btnShareSearchResults');
+  const n = searchSelectedDates.size;
+  if(n === 0){
+    shareBtn.style.display = 'none';
+  } else {
+    shareBtn.style.display = 'block';
+    shareBtn.textContent = `📤 ${n} Tag(e) teilen`;
+  }
 }
 
 document.getElementById('btnShareSearchResults').addEventListener('click', () => {
-  if(currentSearchDates.length === 0) return;
-  const selectedDays = days.filter(d => currentSearchDates.includes(d.date));
+  if(searchSelectedDates.size === 0) return;
+  const selectedDays = days.filter(d => searchSelectedDates.has(d.date));
   searchModal.classList.remove('open');
   shareDaysAsFile(selectedDays);
 });
@@ -2865,6 +2905,9 @@ const CHANGELOG = {
   'v78': [
     'Neu: Suchergebnisse lassen sich jetzt direkt teilen – Button "Treffer teilen" unter der Trefferliste, funktioniert genau wie das bekannte Teilen einzelner Tage.',
   ],
+  'v79': [
+    'Suchergebnisse teilen: jetzt einzeln per Checkbox abwählbar statt immer alle Treffer auf einmal (alle stehen vorausgewählt, "Alle abwählen" für den Gegentest).',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -2910,7 +2953,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v78'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v79'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
