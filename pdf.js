@@ -230,7 +230,12 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
       const dateLabel = `${PDF_WEEKDAYS[dt.getDay()].slice(0,2)} ${pdfPad(dt.getDate())}.${pdfPad(dt.getMonth()+1)}.`;
       doc.setFont('helvetica','bold'); doc.setFontSize(8.3); doc.setTextColor(...TEXT_DARK);
       doc.text(dateLabel, colDate+2.5, yy+4.0);
+      if(!isSpecial && day.start && day.end){
+        doc.setFont('helvetica','normal'); doc.setFontSize(6.3); doc.setTextColor(...MUTED);
+        doc.text(`${day.start}–${day.end}`, colDate+2.5, yy+7.6);
+      }
       doc.setFont('helvetica','normal'); doc.setTextColor(...MUTED);
+      doc.setFontSize(8.3);
       doc.text(String(wk), colKw+1, yy+4.0);
 
       if(isSpecial){
