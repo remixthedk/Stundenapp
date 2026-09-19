@@ -2960,6 +2960,9 @@ const CHANGELOG = {
   'v83': [
     'Neu: Splash-Screen beim Start zeigt jetzt ein eigenes Logo-Motiv.',
   ],
+  'v84': [
+    'Neu: App-Icon überarbeitet (Homescreen-Symbol).',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -3005,7 +3008,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v83'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v84'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
