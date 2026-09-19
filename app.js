@@ -2957,6 +2957,9 @@ const CHANGELOG = {
   'v82': [
     'Neu: Im Standard-PDF steht jetzt unter dem Datum je Arbeitstag die Von-Bis-Arbeitszeit.',
   ],
+  'v83': [
+    'Neu: Splash-Screen beim Start zeigt jetzt ein eigenes Logo-Motiv.',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -3002,7 +3005,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v82'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v83'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
