@@ -435,19 +435,6 @@ function renderNotices(){
     message = `Für ${fmtDate(yesterday)} (${WEEKDAYS[yDow]}) wurde noch nichts erfasst.`;
   }
 
-  // Backup-Erinnerung (nur wenn kein dringenderer Hinweis ansteht)
-  if(!message && lastCheck !== todayISO){
-    const last = settings.lastBackupAt ? new Date(settings.lastBackupAt) : null;
-    const daysSince = last ? (Date.now() - last.getTime())/86400000 : Infinity;
-    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const threshold = isIOS ? 5 : 30; // Safari/iOS kann lokale Daten schon nach ca. 7 Tagen Nichtnutzung löschen
-    if(daysSince > threshold){
-      message = last
-        ? `Letzte Datensicherung ist ${Math.floor(daysSince)} Tage her. ${isIOS ? 'Auf iPhone/iPad kann Safari lokale Daten bei langer Nichtnutzung löschen – ' : ''}Zeit für eine neue?`
-        : `Noch keine Datensicherung erstellt. In den Einstellungen nachholen?`;
-    }
-  }
-
   if(message){
     banner.textContent = '';
     const span = document.createElement('span');
@@ -2369,17 +2356,10 @@ document.getElementById('btnDoExport').addEventListener('click', async () => {
   if(resolved.days.length === 0){ toast('Keine Einträge in diesem Zeitraum'); return; }
   if(!settings.name){ toast('Bitte zuerst Name eintragen'); return; }
 
-  const isPdfExport = exportPrefs.format === 'pdf-standard' || exportPrefs.format === 'pdf-compact';
-
   if(exportPrefs.format === 'csv') doExportCsv(resolved.days, resolved.fileLabel);
   else if(exportPrefs.format === 'excel') doExportExcel(resolved.days, resolved.fileLabel);
   else if(exportPrefs.format === 'pdf-standard') await generateStundenzettelPDF(resolved.days, settings, viewDate, logoImg, !isMobileDevice, resolved.fileLabel);
   else if(exportPrefs.format === 'pdf-compact') await generateStundenzettelPDFCompact(resolved.days, settings, viewDate, logoImg, !isMobileDevice, resolved.fileLabel);
-
-  // PDF-Export ist die verlässliche monatliche Routine (Abgabe an die Personalabteilung) –
-  // daran hängt sich die echte Datensicherung automatisch mit an, statt auf eine separate
-  // Erinnerung zu hoffen.
-  if(isPdfExport) await createFullBackup('📄 PDF exportiert + 💾 Sicherung erstellt');
 
   logExportHistory(exportPrefs.format, resolved.label, exportPrefs);
   settingsModal.classList.remove('open');
@@ -3051,14 +3031,13 @@ const CHANGELOG = {
   ],
   'v87': [
     'Hinweis bei fehlgeschlagenem Speichern (z.B. Speicher voll) bleibt jetzt dauerhaft sichtbar, statt nach kurzer Zeit zu verschwinden.',
-    'Backup-Erinnerung auf iPhone/iPad kommt jetzt früher (nach 5 statt 10 Tagen ohne Sicherung).',
     'Ungewöhnlich hoher Überstunden-Startwert wird beim Speichern der Profil-Einstellungen jetzt nachgefragt, statt stillschweigend übernommen zu werden.',
-  ],
-  'v89': [
-    'Neu: Ein PDF-Export (Standard oder Kompakt) erstellt jetzt automatisch mit eine vollständige Datensicherung – kein separates Dran-Denken mehr nötig, solange monatlich exportiert wird.',
   ],
   'v90': [
     'Feld "E-Mail-Empfänger" in den Profil-Einstellungen entfernt – wurde nirgends tatsächlich zum Versenden genutzt.',
+  ],
+  'v92': [
+    'Wiederkehrende Backup-Erinnerung entfernt: Urlaub und Überstunden stehen ohnehin monatlich auf der Gehaltsabrechnung, verlorene Tage seit dem letzten PDF-Export sind überschaubar. Sicherung erstellen geht weiterhin jederzeit manuell über ⚙ → Datensicherung.',
   ],
 };
 
@@ -3105,7 +3084,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v90'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v92'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
