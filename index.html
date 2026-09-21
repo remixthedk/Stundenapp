@@ -616,9 +616,6 @@
         <input type="text" id="setCity" placeholder="26xxx Ort">
         <label>Jahresurlaubstage</label>
         <input type="number" id="setUrlaubstage" placeholder="z.B. 30" step="1" min="0">
-        <label>E-Mail-Empfänger (für PDF-Versand)</label>
-        <input type="email" id="setEmailRecipient" placeholder="stunden@john-haustechnik.net">
-
         <hr class="sep">
         <div class="settings-hint" style="margin-top:0;">Nur bei Ersteinrichtung wichtig – z.B. wenn du mitten im Jahr mit der App einsteigst.</div>
         <label>Urlaubstage, die dieses Jahr schon genommen wurden (vor App-Nutzung)</label>
@@ -978,6 +975,11 @@
     <button type="button" class="btn secondary" id="btnRawExport" style="width:100%;margin-top:14px;">📄 Rohdaten exportieren (JSON)</button>
 
     <hr class="sep">
+    <label style="margin-top:14px;">🚑 Rettungskopien</label>
+    <div class="settings-hint" style="margin-top:2px;margin-bottom:4px;">Werden automatisch angelegt, wenn beim Laden ein Datenproblem erkannt wurde.</div>
+    <div id="rescuedList" style="margin-top:4px;"></div>
+
+    <hr class="sep">
     <div class="settings-hint" style="margin-top:14px;color:var(--danger);"><b>Gefahrenbereich</b></div>
 
     <label style="margin-top:10px;">Einzelne Monate löschen</label>
@@ -1169,6 +1171,12 @@
           dann "Exportieren". <b>PDF Standard</b> für den normalen Monatsbeleg, <b>PDF Kompakt</b>
           für lange Zeiträume wie ein ganzes Jahr, <b>CSV/Excel</b> für die Weiterverarbeitung
           am Computer.
+        </p>
+        <p style="font-size:13px;line-height:1.6;margin:0 0 10px;">
+          <b>Automatische Sicherung beim PDF-Export:</b> Jeder PDF-Export (Standard oder Kompakt)
+          erstellt im selben Schritt automatisch eine vollständige Datensicherung mit – ideal,
+          da du eh jeden Monat einen PDF-Beleg exportierst. Kein separates "Sicherung erstellen"
+          mehr nötig, solange du regelmäßig exportierst.
         </p>
         <p style="font-size:13px;line-height:1.6;margin:0 0 10px;">
           <b>Einzelne Tage mit Kollegen teilen:</b> Auf der Hauptseite "☑ Auswählen" antippen,
