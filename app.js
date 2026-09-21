@@ -3008,7 +3008,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v85'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v86'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;

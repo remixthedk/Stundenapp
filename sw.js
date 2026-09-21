@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stundenzettel-v85';
+const CACHE_NAME = 'stundenzettel-v86';
 const ASSETS = [
   './index.html',
   './app.js',
@@ -12,9 +12,9 @@ const ASSETS = [
   './icon-512-monochrome.png',
   './logo.png',
   './splash-logo.png',
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+  'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
+  'https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js',
+  'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
 ];
 
 self.addEventListener('install', (event) => {
