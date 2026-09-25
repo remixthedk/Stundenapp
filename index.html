@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#1B4B66">
-<title>Stundenzettel · John Haustechnik</title>
+<meta name="theme-color" content="#123344">
+<title>StempelHeld · Stundenzettel</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
-<link rel="preload" href="logo.png" as="image">
-<link rel="preload" href="splash-logo.png" as="image">
+<link rel="preload" href="splash.gif" as="image">
+<link rel="preload" href="header-mascot.png" as="image">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
   :root{
@@ -38,24 +38,28 @@
   }
   header.topbar{
     position:sticky;top:0;z-index:20;
-    background:var(--primary);
+    background:linear-gradient(90deg, #123344 0%, #1E6E96 100%);
     color:#fff;
     padding:14px 16px calc(14px + env(safe-area-inset-top,0px));
     padding-top:calc(14px + env(safe-area-inset-top,0px));
     display:flex;align-items:center;justify-content:space-between;
     box-shadow:0 1px 0 rgba(0,0,0,0.08);
   }
-  .topbar-logo-wrap{
-    background:#fff;border-radius:8px;padding:5px 10px;display:inline-block;
-    line-height:0;flex-shrink:0;
-  }
-  .topbar-logo{height:34px;width:auto;display:block;}
-  header.topbar .sub{font-size:13px;color:#fff;font-weight:600;}
+  .topbar-brand{display:flex;align-items:center;gap:10px;}
+  .topbar-mascot{height:46px;width:auto;display:block;flex-shrink:0;}
+  .topbar-wordmark{font-size:19px;font-weight:800;color:#fff;letter-spacing:0.1px;white-space:nowrap;}
+  .topbar-wordmark span{color:#FFC61A;}
   .icon-btn{
-    background:rgba(255,255,255,0.14);border:none;color:#fff;
+    background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.4);color:#fff;
     width:38px;height:38px;border-radius:9px;font-size:18px;
     display:flex;align-items:center;justify-content:center;
   }
+  .employee-line{
+    display:none;
+  }
+  .employee-line #employeeSubline{font-weight:600;color:var(--text);font-size:12px;}
+  body.dark .employee-line{color:#9AA7B0;}
+  body.dark .employee-line #employeeSubline{color:#E6ECEF;}
   .month-nav{
     display:flex;align-items:center;justify-content:space-between;
     background:var(--surface);
@@ -258,15 +262,30 @@
   .onboarding-dot.active{background:var(--primary);}
   #splashScreen{
     position:fixed;inset:0;z-index:9999;
-    background:var(--bg);
+    background:#0594F3;
     display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:22px;
     transition:opacity 0.3s ease;
   }
-  #splashScreen img{width:180px;max-width:60vw;height:auto;}
+  #splashScreen .splash-gif-wrap{
+    width:220px;max-width:58vw;
+    aspect-ratio:530/388;
+    border-radius:13% 13% 0 0;
+    overflow:hidden;
+    -webkit-mask-image:-webkit-radial-gradient(white, black);
+  }
+  #splashScreen .splash-gif-wrap img{
+    display:block;width:100%;height:100%;object-fit:cover;
+    border-radius:13% 13% 0 0;
+  }
+  #splashScreen .splash-word{
+    font-size:22px;font-weight:800;color:#fff;letter-spacing:0.2px;
+  }
+  #splashScreen .splash-word span{color:#FFC61A;}
   #splashScreen.fade-out{opacity:0;pointer-events:none;}
-  .splash-dots{display:flex;gap:8px;margin-top:22px;}
+  .splash-dots{display:flex;gap:8px;}
   .splash-dots span{
-    width:8px;height:8px;border-radius:50%;background:var(--primary);
+    width:8px;height:8px;border-radius:50%;background:#FFC61A;
     opacity:0.3;animation:splashPulse 1.2s ease-in-out infinite;
   }
   .splash-dots span:nth-child(2){animation-delay:0.2s;}
@@ -451,7 +470,10 @@
 <body>
 
 <div id="splashScreen">
-  <img src="splash-logo.png" alt="John Haustechnik">
+  <div class="splash-gif-wrap">
+    <img src="splash.gif" alt="StempelHeld">
+  </div>
+  <div class="splash-word">Stempel<span>Held</span></div>
   <div class="splash-dots"><span></span><span></span><span></span></div>
 </div>
 <script>
@@ -473,14 +495,9 @@
 
 
 <header class="topbar">
-  <div style="display:flex;align-items:center;gap:11px;">
-    <div class="topbar-logo-wrap">
-      <img src="logo.png" alt="John Haustechnik" class="topbar-logo">
-    </div>
-    <div>
-      <div class="sub" id="employeeSubline">Stundenzettel</div>
-      <div id="employeeAddressLine" style="font-size:11px;color:#BFD3DD;margin-top:1px;"></div>
-    </div>
+  <div class="topbar-brand">
+    <img src="header-mascot.png" alt="" class="topbar-mascot">
+    <div class="topbar-wordmark">Stempel<span>Held</span></div>
   </div>
   <div style="display:flex;gap:8px;">
     <button class="icon-btn" id="btnAnalytics" aria-label="Jahresübersicht">📊</button>
@@ -488,6 +505,10 @@
     <button class="icon-btn" id="btnSettings" aria-label="Einstellungen">⚙</button>
   </div>
 </header>
+<div class="employee-line">
+  <span id="employeeSubline">Stundenzettel</span>
+  <span id="employeeAddressLine"></span>
+</div>
 
 <div class="month-nav">
   <button id="prevMonth">‹</button>
@@ -616,6 +637,9 @@
         <input type="text" id="setCity" placeholder="26xxx Ort">
         <label>Jahresurlaubstage</label>
         <input type="number" id="setUrlaubstage" placeholder="z.B. 30" step="1" min="0">
+        <label>E-Mail-Empfänger (für PDF-Versand)</label>
+        <input type="email" id="setEmailRecipient" placeholder="stunden@john-haustechnik.net">
+
         <hr class="sep">
         <div class="settings-hint" style="margin-top:0;">Nur bei Ersteinrichtung wichtig – z.B. wenn du mitten im Jahr mit der App einsteigst.</div>
         <label>Urlaubstage, die dieses Jahr schon genommen wurden (vor App-Nutzung)</label>
@@ -742,10 +766,9 @@
         <span>ℹ️ Über diese App</span><span class="chev">▾</span>
       </button>
       <div class="settings-group-body" style="text-align:center;">
-        <img src="logo.png" alt="John Haustechnik" style="height:44px;margin-bottom:14px;">
-        <p style="font-size:13px;line-height:1.6;margin:0 0 14px;text-align:left;">
-          <b>John Haustechnik GmbH &amp; Co KG</b><br>
-          Friedrichsfehner Str. 8 · 26188 Edewecht
+        <img src="header-mascot.png" alt="StempelHeld" style="height:56px;margin-bottom:10px;">
+        <p style="font-size:16px;line-height:1.4;margin:0 0 14px;font-weight:800;">
+          Stempel<span style="color:#D6870A;">Held</span>
         </p>
         <div style="text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:12px 14px;">
           <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px;">Credits</div>
@@ -757,7 +780,7 @@
           </p>
         </div>
         <p style="font-size:11.5px;color:var(--muted);margin:12px 0 0;text-align:left;">
-          Entwickelt für den betriebsinternen Einsatz bei John Haustechnik.
+          Entwickelt für den betriebsinternen Einsatz.
         </p>
       </div>
     </div>
@@ -975,11 +998,6 @@
     <button type="button" class="btn secondary" id="btnRawExport" style="width:100%;margin-top:14px;">📄 Rohdaten exportieren (JSON)</button>
 
     <hr class="sep">
-    <label style="margin-top:14px;">🚑 Rettungskopien</label>
-    <div class="settings-hint" style="margin-top:2px;margin-bottom:4px;">Werden automatisch angelegt, wenn beim Laden ein Datenproblem erkannt wurde.</div>
-    <div id="rescuedList" style="margin-top:4px;"></div>
-
-    <hr class="sep">
     <div class="settings-hint" style="margin-top:14px;color:var(--danger);"><b>Gefahrenbereich</b></div>
 
     <label style="margin-top:10px;">Einzelne Monate löschen</label>
@@ -1148,11 +1166,15 @@
           eigenen, getrennten Speicher – wechselst du z.B. von Chrome zu Samsung Internet, siehst
           du dort keine deiner bisherigen Daten, als würdest du bei Null anfangen.
         </p>
+        <p style="font-size:13px;line-height:1.6;margin:0 0 10px;">
+          <b>Regelmäßig Sicherungen erstellen</b> (⚙ → Datensicherung → "Sicherung erstellen") –
+          Faustregel: einmal im Monat, am besten direkt nach dem PDF-Export. Das ist der einzige
+          Schutz bei Handy-Verlust oder -Defekt.
+        </p>
         <p style="font-size:13px;line-height:1.6;margin:0;">
-          <b>Bei Handy-Verlust oder -Defekt:</b> Urlaub und Überstunden stehen ohnehin jeden Monat
-          auf deiner Gehaltsabrechnung, verloren gehen höchstens die Tage seit dem letzten
-          PDF-Export. Willst du trotzdem alles (inkl. Notizen, Kundenverlauf) sichern, z.B. vor
-          einem Handy-Wechsel: ⚙ → Datensicherung → "Sicherung erstellen".
+          <b>iPhone/iPad-Nutzer:</b> Safari kann bei sehr langer Nichtnutzung (mehrere Wochen)
+          lokale Daten von Websites automatisch löschen. Die App erinnert dich deshalb auf
+          iOS-Geräten schon nach 10 statt 30 Tagen an ein Backup.
         </p>
       </div>
     </div>
@@ -1279,9 +1301,9 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" integrity="sha256-mMzxeqEMILsTAXYmGPzJtqs6Tn8mtgcdZNC0EVTfOHU=" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" integrity="sha256-xUHvBjJ4hahBW8qN9gceFBibSFUzbe9PNttUvehITzY=" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha256-yVBhl8r4CaB1tt7h2g02+xnacVj/6KiOewyWxdhiPJk=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="pdf.js"></script>
 <script src="app.js"></script>
 </body>

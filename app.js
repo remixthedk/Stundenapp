@@ -73,6 +73,7 @@ const DEFAULT_SETTINGS = {
   monThuStart:'07:00', monThuEnd:'16:15', monThuPause:60,
   friStart:'07:00', friEnd:'12:30', friPause:30,
   darkMode:false, lastBackupAt:null, urlaubstage:30,
+  emailRecipient:'stunden@john-haustechnik.net',
   balanceCutoffDate: toISODate(new Date()),
   showOfficeShare:false,
   tileUrlaub:true, tileKrank:true, tileSchule:true, tileAbbau:true, tileKunden:true,
@@ -101,9 +102,8 @@ function loadSettings(){
 function saveSettings(s){
   try{
     localStorage.setItem('sz_settings', JSON.stringify(s));
-    saveFailureWarning = false;
     return true;
-  }catch(e){ saveFailureWarning = true; return false; }
+  }catch(e){ return false; }
 }
 
 function loadDays(){
@@ -118,9 +118,8 @@ function loadDays(){
 function saveDays(days){
   try{
     localStorage.setItem('sz_days', JSON.stringify(days));
-    saveFailureWarning = false;
     return true;
-  }catch(e){ saveFailureWarning = true; return false; }
+  }catch(e){ return false; }
 }
 
 function loadLockedMonths(){
@@ -135,9 +134,8 @@ function loadLockedMonths(){
 function saveLockedMonths(list){
   try{
     localStorage.setItem('sz_locked_months', JSON.stringify(list));
-    saveFailureWarning = false;
     return true;
-  }catch(e){ saveFailureWarning = true; return false; }
+  }catch(e){ return false; }
 }
 function monthKey(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}`; }
 
@@ -152,7 +150,6 @@ function rescueCorruptData(key){
   }catch(e){ /* nichts mehr zu retten */ }
 }
 let dataIntegrityWarning = false;
-let saveFailureWarning = false; // zuletzt ist ein Speichern fehlgeschlagen (z.B. Speicher voll) – bis zum nächsten erfolgreichen Speichern sichtbar
 
 /* ===== State ===== */
 let settings = loadSettings();
@@ -398,21 +395,6 @@ function renderNotices(){
     return;
   }
 
-  // Sehr hohe Priorität: zuletzt ist ein Speichern fehlgeschlagen (z.B. Speicher voll) – bleibt
-  // stehen, bis der Nutzer sie wegklickt oder ein Speichern wieder klappt, kein flüchtiger Toast.
-  if(saveFailureWarning){
-    banner.textContent = '';
-    const span = document.createElement('span');
-    span.textContent = '⚠️ Zuletzt konnte nicht gespeichert werden (Speicher voll oder blockiert?). Bitte Speicherplatz prüfen und zeitnah eine Datensicherung erstellen!';
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = '✕';
-    closeBtn.addEventListener('click', () => { saveFailureWarning = false; banner.style.display = 'none'; });
-    banner.appendChild(span);
-    banner.appendChild(closeBtn);
-    banner.style.display = 'flex';
-    return;
-  }
-
   // Höchste Priorität: beschädigte Daten wurden gerettet – das muss der Nutzer sehen
   if(dataIntegrityWarning){
     message = 'Achtung: Beim Laden gab es ein Problem mit gespeicherten Daten. Eine Rettungskopie wurde angelegt. Bitte zeitnah eine Datensicherung prüfen/erstellen!';
@@ -433,6 +415,19 @@ function renderNotices(){
   const yISO = toISODate(yesterday);
   if(lastCheck !== todayISO && yDow >= 1 && yDow <= 5 && !isHoliday(yesterday) && !days.find(d=>d.date===yISO)){
     message = `Für ${fmtDate(yesterday)} (${WEEKDAYS[yDow]}) wurde noch nichts erfasst.`;
+  }
+
+  // Backup-Erinnerung (nur wenn kein dringenderer Hinweis ansteht)
+  if(!message && lastCheck !== todayISO){
+    const last = settings.lastBackupAt ? new Date(settings.lastBackupAt) : null;
+    const daysSince = last ? (Date.now() - last.getTime())/86400000 : Infinity;
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const threshold = isIOS ? 10 : 30; // Safari/iOS kann lokale Daten bei langer Nichtnutzung löschen
+    if(daysSince > threshold){
+      message = last
+        ? `Letzte Datensicherung ist ${Math.floor(daysSince)} Tage her. ${isIOS ? 'Auf iPhone/iPad kann Safari lokale Daten bei langer Nichtnutzung löschen – ' : ''}Zeit für eine neue?`
+        : `Noch keine Datensicherung erstellt. In den Einstellungen nachholen?`;
+    }
   }
 
   if(message){
@@ -953,59 +948,7 @@ function openHiddenMenu(){
   document.getElementById('resetConfirmBox').style.display = 'none';
   document.getElementById('resetConfirmInput').value = '';
   renderDeleteMonthList();
-  renderRescuedList();
   hiddenMenuModal.classList.add('open');
-}
-
-// Listet Rettungskopien auf, die beim Laden kaputter Daten automatisch angelegt wurden
-// (siehe rescueCorruptData) – vorher lagen die nur unsichtbar in localStorage.
-function findRescuedKeys(){
-  const keys = [];
-  try{
-    for(const key in localStorage){
-      if(Object.prototype.hasOwnProperty.call(localStorage, key) && key.includes('_rescued_')) keys.push(key);
-    }
-  }catch(e){}
-  return keys.sort().reverse();
-}
-
-function renderRescuedList(){
-  const container = document.getElementById('rescuedList');
-  const keys = findRescuedKeys();
-  if(keys.length === 0){
-    container.innerHTML = `<div class="settings-hint" style="margin-top:0;">Keine vorhanden.</div>`;
-    return;
-  }
-  container.innerHTML = keys.map(key => {
-    const tsMatch = key.match(/_rescued_(\d+)$/);
-    const ts = tsMatch ? new Date(parseInt(tsMatch[1],10)) : null;
-    const dateStr = ts ? `${ts.toLocaleDateString('de-DE')} ${pad(ts.getHours())}:${pad(ts.getMinutes())}` : 'unbekannt';
-    let sizeKB = '?';
-    try{ sizeKB = ((localStorage.getItem(key)||'').length/1024).toFixed(1); }catch(e){}
-    const origKey = key.split('_rescued_')[0];
-    return `<div class="share-history-row">
-      <div class="info">
-        <div class="d">${escapeHtml(origKey)}</div>
-        <div class="s">Gerettet am ${dateStr} · ${sizeKB} KB</div>
-      </div>
-      <button type="button" class="history-redo rescued-export" data-key="${escapeHtml(key)}">Exportieren</button>
-    </div>`;
-  }).join('');
-
-  container.querySelectorAll('.rescued-export').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const key = btn.dataset.key;
-      let raw = '';
-      try{ raw = localStorage.getItem(key) || ''; }catch(e){}
-      const blob = new Blob([raw], {type:'application/json'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = `Rettungskopie_${key}.json`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast('Rettungskopie exportiert');
-    });
-  });
 }
 document.getElementById('closeHiddenMenu').addEventListener('click', () => hiddenMenuModal.classList.remove('open'));
 hiddenMenuModal.addEventListener('click', (e) => { if(e.target === hiddenMenuModal) hiddenMenuModal.classList.remove('open'); });
@@ -1402,6 +1345,7 @@ function openSettings(){
   document.getElementById('setUrlaubVorApp').value = settings.urlaubVorAppStart || 0;
   document.getElementById('setOvertimeStart').value = settings.overtimeStartBalance || 0;
   document.getElementById('setBalanceCutoff').value = settings.balanceCutoffDate || '';
+  document.getElementById('setEmailRecipient').value = settings.emailRecipient || '';
   document.getElementById('setMonThuStart').value = settings.monThuStart;
   document.getElementById('setMonThuEnd').value = settings.monThuEnd;
   document.getElementById('setMonThuPause').value = settings.monThuPause;
@@ -1436,10 +1380,6 @@ document.getElementById('saveSettings').addEventListener('click', () => {
   const urlaubVorAppRaw = parseFloat(document.getElementById('setUrlaubVorApp').value) || 0;
   if(urlaubVorAppRaw < 0){ toast('Bereits genommene Urlaubstage können nicht negativ sein'); return; }
   const overtimeStartRaw = parseFloat(document.getElementById('setOvertimeStart').value) || 0;
-  if(Math.abs(overtimeStartRaw) > 300){
-    const ok = window.confirm(`Überstunden-Startwert von ${fmtHours(overtimeStartRaw)} Std wirkt ungewöhnlich hoch. Trotzdem so übernehmen?`);
-    if(!ok) return;
-  }
   const balanceCutoffRaw = document.getElementById('setBalanceCutoff').value || '';
 
   settings = {
@@ -1451,6 +1391,7 @@ document.getElementById('saveSettings').addEventListener('click', () => {
     urlaubVorAppStart: urlaubVorAppRaw,
     balanceCutoffDate: balanceCutoffRaw,
     overtimeStartBalance: overtimeStartRaw,
+    emailRecipient: document.getElementById('setEmailRecipient').value.trim(),
     monThuStart: document.getElementById('setMonThuStart').value,
     monThuEnd: document.getElementById('setMonThuEnd').value,
     monThuPause: parseFloat(document.getElementById('setMonThuPause').value) || 0,
@@ -1700,9 +1641,7 @@ function markBackupDone(){
   document.getElementById('lastBackupInfo').textContent = `Letzte Sicherung: ${new Date(settings.lastBackupAt).toLocaleString('de-DE')}`;
 }
 
-// Erstellt eine vollständige Sicherung (Share oder Download). `customToast` überschreibt die
-// Standard-Rückmeldung, z.B. wenn dies automatisch im Rahmen eines PDF-Exports mitläuft.
-async function createFullBackup(customToast){
+document.getElementById('btnBackupExport').addEventListener('click', async () => {
   const payload = {
     app: 'stundenzettel-john-haustechnik',
     version: 1,
@@ -1731,7 +1670,7 @@ async function createFullBackup(customToast){
     if(navigator.canShare && navigator.canShare({files:[file]})){
       await navigator.share({files:[file], title:'Stundenzettel Datensicherung'});
       markBackupDone();
-      toast(customToast || 'Sicherung geteilt');
+      toast('Sicherung geteilt');
       return;
     }
   }catch(e){ /* fall through to download */ }
@@ -1742,10 +1681,8 @@ async function createFullBackup(customToast){
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
   markBackupDone();
-  toast(customToast || 'Sicherung heruntergeladen');
-}
-
-document.getElementById('btnBackupExport').addEventListener('click', () => createFullBackup());
+  toast('Sicherung heruntergeladen');
+});
 
 document.getElementById('btnBackupImport').addEventListener('click', () => {
   document.getElementById('backupFileInput').click();
@@ -2727,7 +2664,7 @@ document.querySelectorAll('.settings-group-head').forEach(btn => {
 
 /* ===== Onboarding (nur beim ersten Start) ===== */
 const ONBOARDING_SLIDES = [
-  { type:'info', icon:'👋', title:'Willkommen!', text:'Dein digitaler Stundenzettel für John Haustechnik GmbH & Co KG – entwickelt von Marcus Lüschen. Alle Daten bleiben nur auf deinem Handy.' },
+  { type:'info', icon:'👋', title:'Willkommen!', text:'Dein digitaler Stundenzettel StempelHeld – entwickelt von Marcus Lüschen. Alle Daten bleiben nur auf deinem Handy.' },
   { type:'form', form:'profile', title:'Deine Daten', subtitle:'Erscheint auf jedem PDF-Export.' },
   { type:'form', form:'worktimes', title:'Deine Arbeitszeiten', subtitle:'Werden beim Erfassen vorausgefüllt, bleiben pro Tag änderbar.' },
   { type:'form', form:'balances', title:'Urlaub & Überstunden', subtitle:'Steigst du mitten im Jahr ein: hier deinen aktuellen Stand eintragen. Wichtig: Trägst du später mal Tage von VOR dem Stichtag nach (z.B. einen alten Stundenzettel importieren), werden die automatisch nicht nochmal mitgezählt – sonst gäbe es Doppelzählungen.' },
@@ -3027,17 +2964,13 @@ const CHANGELOG = {
     'Neu: App-Icon überarbeitet (Homescreen-Symbol).',
   ],
   'v86': [
-    'Sicherheit: externe Bibliotheken (PDF-, Excel- und QR-Code-Erzeugung) werden jetzt mit Integritätsprüfung geladen – schützt davor, dass ein manipuliertes Fremd-Skript unbemerkt mitläuft.',
+    'Neu: StempelHeld-Maskottchen im Header, App-Icon und als animierter Splashscreen beim Start.',
   ],
   'v87': [
-    'Hinweis bei fehlgeschlagenem Speichern (z.B. Speicher voll) bleibt jetzt dauerhaft sichtbar, statt nach kurzer Zeit zu verschwinden.',
-    'Ungewöhnlich hoher Überstunden-Startwert wird beim Speichern der Profil-Einstellungen jetzt nachgefragt, statt stillschweigend übernommen zu werden.',
+    'Firmenbezug aus der App-Oberfläche entfernt, App zeigt jetzt durchgängig StempelHeld (Standard-PDF-Export bleibt unverändert).',
   ],
-  'v90': [
-    'Feld "E-Mail-Empfänger" in den Profil-Einstellungen entfernt – wurde nirgends tatsächlich zum Versenden genutzt.',
-  ],
-  'v92': [
-    'Wiederkehrende Backup-Erinnerung entfernt: Urlaub und Überstunden stehen ohnehin monatlich auf der Gehaltsabrechnung, verlorene Tage seit dem letzten PDF-Export sind überschaubar. Sicherung erstellen geht weiterhin jederzeit manuell über ⚙ → Datensicherung.',
+  'v88': [
+    'Name und Anschrift werden nicht mehr auf der Hauptseite angezeigt.',
   ],
 };
 
@@ -3084,7 +3017,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v92'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v88'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
