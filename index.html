@@ -4,10 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#123344">
-<title>Stundenzettel · John Haustechnik</title>
+<title>StempelHeld · Stundenzettel</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
-<link rel="preload" href="logo.png" as="image">
 <link rel="preload" href="splash.gif" as="image">
 <link rel="preload" href="header-mascot.png" as="image">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -56,8 +55,7 @@
     display:flex;align-items:center;justify-content:center;
   }
   .employee-line{
-    padding:6px 16px;font-size:11px;color:var(--muted);
-    display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline;
+    display:none;
   }
   .employee-line #employeeSubline{font-weight:600;color:var(--text);font-size:12px;}
   body.dark .employee-line{color:#9AA7B0;}
@@ -768,10 +766,9 @@
         <span>ℹ️ Über diese App</span><span class="chev">▾</span>
       </button>
       <div class="settings-group-body" style="text-align:center;">
-        <img src="logo.png" alt="John Haustechnik" style="height:44px;margin-bottom:14px;">
-        <p style="font-size:13px;line-height:1.6;margin:0 0 14px;text-align:left;">
-          <b>John Haustechnik GmbH &amp; Co KG</b><br>
-          Friedrichsfehner Str. 8 · 26188 Edewecht
+        <img src="header-mascot.png" alt="StempelHeld" style="height:56px;margin-bottom:10px;">
+        <p style="font-size:16px;line-height:1.4;margin:0 0 14px;font-weight:800;">
+          Stempel<span style="color:#D6870A;">Held</span>
         </p>
         <div style="text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:12px 14px;">
           <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px;">Credits</div>
@@ -783,7 +780,7 @@
           </p>
         </div>
         <p style="font-size:11.5px;color:var(--muted);margin:12px 0 0;text-align:left;">
-          Entwickelt für den betriebsinternen Einsatz bei John Haustechnik.
+          Entwickelt für den betriebsinternen Einsatz.
         </p>
       </div>
     </div>

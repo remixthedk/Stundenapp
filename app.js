@@ -2664,7 +2664,7 @@ document.querySelectorAll('.settings-group-head').forEach(btn => {
 
 /* ===== Onboarding (nur beim ersten Start) ===== */
 const ONBOARDING_SLIDES = [
-  { type:'info', icon:'👋', title:'Willkommen!', text:'Dein digitaler Stundenzettel für John Haustechnik GmbH & Co KG – entwickelt von Marcus Lüschen. Alle Daten bleiben nur auf deinem Handy.' },
+  { type:'info', icon:'👋', title:'Willkommen!', text:'Dein digitaler Stundenzettel StempelHeld – entwickelt von Marcus Lüschen. Alle Daten bleiben nur auf deinem Handy.' },
   { type:'form', form:'profile', title:'Deine Daten', subtitle:'Erscheint auf jedem PDF-Export.' },
   { type:'form', form:'worktimes', title:'Deine Arbeitszeiten', subtitle:'Werden beim Erfassen vorausgefüllt, bleiben pro Tag änderbar.' },
   { type:'form', form:'balances', title:'Urlaub & Überstunden', subtitle:'Steigst du mitten im Jahr ein: hier deinen aktuellen Stand eintragen. Wichtig: Trägst du später mal Tage von VOR dem Stichtag nach (z.B. einen alten Stundenzettel importieren), werden die automatisch nicht nochmal mitgezählt – sonst gäbe es Doppelzählungen.' },
@@ -2966,6 +2966,12 @@ const CHANGELOG = {
   'v86': [
     'Neu: StempelHeld-Maskottchen im Header, App-Icon und als animierter Splashscreen beim Start.',
   ],
+  'v87': [
+    'Firmenbezug aus der App-Oberfläche entfernt, App zeigt jetzt durchgängig StempelHeld (Standard-PDF-Export bleibt unverändert).',
+  ],
+  'v88': [
+    'Name und Anschrift werden nicht mehr auf der Hauptseite angezeigt.',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -3011,7 +3017,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v86'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v88'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
