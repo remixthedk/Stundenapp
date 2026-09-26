@@ -2,7 +2,7 @@
 const APP_BOOT_TIME = Date.now();
 function getSplashDurationMs(){
   const v = parseFloat(localStorage.getItem('sz_splash_duration_s'));
-  return (!isNaN(v) && v >= 0) ? v*1000 : 2000; // Standard: 2 Sekunden
+  return (!isNaN(v) && v >= 0) ? v*1000 : 3000; // Standard: 3 Sekunden (Länge des Splash-GIFs)
 }
 function setSplashDurationSeconds(seconds){
   try{ localStorage.setItem('sz_splash_duration_s', String(seconds)); }catch(e){}
@@ -3017,7 +3017,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v88'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v89'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
