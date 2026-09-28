@@ -37,12 +37,37 @@ function dayRows(day){
       let desc = it.kunde || 'Büroarbeiten';
       if(it.taetigkeit) desc += ` – ${it.taetigkeit}`;
       const tags = [];
-      if(it.nachtarbeit) tags.push('N');
-      if(it.schmutzzulage) tags.push('S');
-      return { desc, hours: parseFloat(it.stunden)||0, italic:false, zuschlag: tags.join('/') };
+      if(it.nachtarbeit) tags.push('NACHT');
+      if(it.schmutzzulage) tags.push('SCHMUTZ');
+      return { desc, hours: parseFloat(it.stunden)||0, italic:false, zuschlag: tags };
     });
   }
-  return [{ desc: specialLabel(day), hours: dayTotalPdf(day), italic:true, zuschlag:'' }];
+  return [{ desc: specialLabel(day), hours: dayTotalPdf(day), italic:true, zuschlag:[] }];
+}
+
+// Zeichnet Zuschlag-Kennzeichnungen (NACHT/SCHMUTZ) als ausgefüllte, deutlich sichtbare Badges
+// statt kleiner farbiger Buchstaben – rechtsbündig, mehrere Labels nebeneinander.
+function drawZuschlagBadges(doc, labels, rightEdgeX, baselineY, opts){
+  if(!labels || labels.length === 0) return;
+  const fontSize = opts.fontSize || 6.3;
+  const padX = opts.padX != null ? opts.padX : 1.3;
+  const height = opts.height || 3.3;
+  const gap = opts.gap != null ? opts.gap : 1.2;
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(fontSize);
+  let cursorRight = rightEdgeX;
+  for(let i = labels.length - 1; i >= 0; i--){
+    const label = labels[i];
+    const textW = doc.getTextWidth(label);
+    const boxW = textW + padX*2;
+    const boxX = cursorRight - boxW;
+    const boxY = baselineY - height + 1.0;
+    doc.setFillColor(...PRIMARY);
+    doc.roundedRect(boxX, boxY, boxW, height, 0.8, 0.8, 'F');
+    doc.setTextColor(255,255,255);
+    doc.text(label, boxX + boxW/2, baselineY - 0.15, {align:'center'});
+    cursorRight = boxX - gap;
+  }
 }
 
 // Große Monats-/Zeitraum-Überschrift, passt sich automatisch an den gewählten Zeitraum an.
@@ -208,7 +233,7 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
 
     // ---- Tagesblöcke ----
     let stripeToggle = true;
-    const descMaxW = colZuschlagRight - 18 - colDesc - 2;
+    const descMaxW = colZuschlagRight - 30 - colDesc - 2; // mehr Reserve wegen der breiteren NACHT/SCHMUTZ-Badges
 
     pageDays.forEach(day => {
       const dt = new Date(day.date + 'T00:00:00');
@@ -249,10 +274,7 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
           doc.setFont('helvetica','normal');
           doc.setFontSize(8.3); doc.setTextColor(...TEXT_DARK);
           doc.text(truncateToWidth(doc, row.desc, descMaxW), colDesc, yy+4.0);
-          if(row.zuschlag){
-            doc.setFont('helvetica','bold'); doc.setTextColor(...PRIMARY);
-            doc.text(row.zuschlag, colZuschlagRight, yy+4.0, {align:'right'});
-          }
+          drawZuschlagBadges(doc, row.zuschlag, colZuschlagRight, yy+4.0, {fontSize:6.3, height:3.3});
           doc.setFont('helvetica','normal'); doc.setTextColor(...TEXT_DARK);
           doc.text(pdfFmtHours(row.hours), M+contentW-2, yy+4.0, {align:'right'});
           yy += ROW_H;
@@ -287,7 +309,7 @@ async function generateStundenzettelPDF(monthDays, settings, viewDate, logoImgEl
     // ---- Legende ----
     if(hasZulagen){
       doc.setFont('helvetica','normal'); doc.setFontSize(6.5); doc.setTextColor(...MUTED);
-      doc.text('(N) = Nachtarbeit   (S) = Schmutzzulage – gesondert abgerechnet', M, y+BOTTOMBAR_H+6);
+      doc.text('NACHT/SCHMUTZ-Kennzeichnung: gesondert abgerechnet', M, y+BOTTOMBAR_H+6);
     }
 
     // ---- Fußzeile ----
@@ -429,26 +451,23 @@ async function generateStundenzettelPDFCompact(monthDays, settings, viewDate, lo
       doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...TEXT_DARK);
       doc.text(dateStr, M+4, y+3.6);
 
-      let detailText, zuschlagTag = '';
+      let detailText, zuschlagLabels = [];
       if(day.type === 'work'){
         const rows = dayRows(day);
         detailText = rows.map(r => r.desc).join(', ');
         const tags = new Set();
-        rows.forEach(r => { if(r.zuschlag) r.zuschlag.split('/').forEach(t => tags.add(t)); });
-        zuschlagTag = Array.from(tags).join('/');
+        rows.forEach(r => (r.zuschlag||[]).forEach(t => tags.add(t)));
+        zuschlagLabels = Array.from(tags);
       } else {
         detailText = specialLabel(day);
       }
       const colZuschlagRight = M+contentW-22;
       const detailX = M+24;
-      const detailMaxW = colZuschlagRight - 14 - detailX;
+      const detailMaxW = colZuschlagRight - 26 - detailX; // Reserve für NACHT/SCHMUTZ-Badges
       doc.setFont('helvetica','normal'); doc.setFontSize(7.2); doc.setTextColor(...MUTED);
       doc.text(truncateToWidth(doc, detailText, detailMaxW), detailX, y+3.6);
 
-      if(zuschlagTag){
-        doc.setFont('helvetica','bold'); doc.setFontSize(7.2); doc.setTextColor(...PRIMARY);
-        doc.text(zuschlagTag, colZuschlagRight, y+3.6, {align:'right'});
-      }
+      drawZuschlagBadges(doc, zuschlagLabels, colZuschlagRight, y+3.6, {fontSize:5.6, height:2.9, padX:1.1, gap:1});
 
       doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...PRIMARY);
       doc.text(pdfFmtHours(dayTotalPdf(day)), M+contentW-2, y+3.6, {align:'right'});
@@ -468,7 +487,7 @@ async function generateStundenzettelPDFCompact(monthDays, settings, viewDate, lo
     const fy = PH - M - 6;
     doc.setFont('helvetica','normal'); doc.setFontSize(6); doc.setTextColor(190,193,190);
     const creditText = hasZulagen
-      ? '(N) = Nachtarbeit   (S) = Schmutzzulage   ·   App-Konzept: Marcus Lüschen'
+      ? 'NACHT/SCHMUTZ: gesondert abgerechnet   ·   App-Konzept: Marcus Lüschen'
       : 'App-Konzept: Marcus Lüschen';
     doc.text(creditText, M, fy);
     doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(150,156,159);
