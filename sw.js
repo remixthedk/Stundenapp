@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stundenzettel-v93';
+const CACHE_NAME = 'stundenzettel-v95';
 const ASSETS = [
   './index.html',
   './app.js',
@@ -11,7 +11,8 @@ const ASSETS = [
   './icon-192-monochrome.png',
   './icon-512-monochrome.png',
   './logo.png',
-  './splash-logo.png',
+  './header-mascot.png',
+  './splash.gif',
   'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
   'https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js',
   'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'

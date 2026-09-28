@@ -2727,7 +2727,7 @@ document.querySelectorAll('.settings-group-head').forEach(btn => {
 
 /* ===== Onboarding (nur beim ersten Start) ===== */
 const ONBOARDING_SLIDES = [
-  { type:'info', icon:'👋', title:'Willkommen!', text:'Dein digitaler Stundenzettel für John Haustechnik GmbH & Co KG – entwickelt von Marcus Lüschen. Alle Daten bleiben nur auf deinem Handy.' },
+  { type:'info', icon:'👋', title:'Willkommen!', text:'Dein digitaler Stundenzettel StempelHeld – entwickelt von Marcus Lüschen. Alle Daten bleiben nur auf deinem Handy.' },
   { type:'form', form:'profile', title:'Deine Daten', subtitle:'Erscheint auf jedem PDF-Export.' },
   { type:'form', form:'worktimes', title:'Deine Arbeitszeiten', subtitle:'Werden beim Erfassen vorausgefüllt, bleiben pro Tag änderbar.' },
   { type:'form', form:'balances', title:'Urlaub & Überstunden', subtitle:'Steigst du mitten im Jahr ein: hier deinen aktuellen Stand eintragen. Wichtig: Trägst du später mal Tage von VOR dem Stichtag nach (z.B. einen alten Stundenzettel importieren), werden die automatisch nicht nochmal mitgezählt – sonst gäbe es Doppelzählungen.' },
@@ -3042,6 +3042,12 @@ const CHANGELOG = {
   'v93': [
     'PDF: Nachtarbeit/Schmutzzulage sind jetzt deutlich sichtbare Badges ("NACHT"/"SCHMUTZ") statt kleiner Buchstaben – auf einen Blick erkennbar, auch im Kompakt-Layout.',
   ],
+  'v94': [
+    'Splashscreen und Header-Logo wiederhergestellt (waren durch ein versehentliches Überschreiben verloren gegangen).',
+  ],
+  'v95': [
+    'App zeigt jetzt durchgängig StempelHeld statt Firmenbezug (Standard-PDF-Export bleibt unverändert).',
+  ],
 };
 
 const changelogModal = document.getElementById('changelogModal');
@@ -3087,7 +3093,7 @@ function checkChangelog(){
 }
 
 /* ===== Init ===== */
-const APP_VERSION = 'v93'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
+const APP_VERSION = 'v95'; // wird bei jedem Update zusammen mit der Cache-Version in sw.js erhöht
 document.getElementById('appVersionLabel').textContent = `Version ${APP_VERSION}`;
 let versionTapCount = 0;
 let versionTapTimer;
